@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Generator G-code półek + podgląd</title>
+<style>
+  body { font-family: sans-serif; margin: 20px; max-width: 1200px; }
+  h1 { font-size: 22px; margin-bottom: 10px; }
+  fieldset { margin-bottom: 15px; padding: 10px; }
+  summary { cursor: pointer; font-weight: bold; }
+  label { display: block; margin: 4px 0; }
+  input[type="number"], input[type="text"], select { padding: 3px; width: 160px; }
+  .row { display: flex; flex-wrap: wrap; gap: 20px; }
+  .row > div { min-width: 240px; }
+  button { padding: 8px 16px; margin-top: 10px; }
+  textarea { width: 100%; height: 200px; font-family: monospace; font-size: 11px; }
+  #viewerContainer { border: 1px solid #ccc; margin-top: 20px; padding: 10px; }
+  #viewerCanvases { display: flex; gap: 10px; }
+  canvas { border: 1px solid #666; background: #f8f8f8; cursor: crosshair; }
+  #measureInfo { font-size: 16px; margin-top: 5px; white-space: pre-line; }
+  .legend span { display: inline-block; margin-right: 10px; font-size: 12px; }
+  .legend-box { width: 10px; height: 10px; display: inline-block; margin-right: 3px; }
+</style>
+</head>
+<body>
+
+<h1>Generator G-code półek (LEWY / PRAWY) – offline + podgląd</h1>
+
+<form id="gcodeForm">
+
+  <details open>
+    <summary>Parametry narzędzia i prędkości</summary>
+    <fieldset>
+      <div class="row">
+        <div>
+          <label>Średnica freza [mm]:
+            <input type="number" id="toolDiameter" step="0.1" value="4.0">
+          </label>
+          <label>Średnica otworów pod półki (fi) [mm]:
+            <input type="number" id="holeDiameter" step="0.1" value="5.2">
+          </label>
+          <label>Średnica kołków (fi) [mm]:
+            <input type="number" id="dowelDiameter" step="0.1" value="8.2">
+          </label>
+          <label>Średnica matrixów (fi) [mm]:
+            <input type="number" id="matrixDiameter" step="0.1" value="4.2">
+          </label>
+        </div>
+
+        <div>
+          <label>Feed Z [mm/min]:
+            <input type="number" id="feedZ" step="1" value="150">
+          </label>
+          <label>Feed Helix [mm/min]:
+            <input type="number" id="feedHelix" step="1" value="100">
+          </label>
+          <label>Feed Slot [mm/min]:
+            <input type="number" id="feedSlot" step="1" value="600">
+          </label>
+          <label>Rapid feed [mm/min]:
+            <input type="number" id="rapidFeed" step="1" value="2000">
+          </label>
+          <label>Clearance Z [mm]:
+            <input type="number" id="clearanceZ" step="0.1" value="8.0">
+          </label>
+          <label>Retract Z [mm]:
+            <input type="number" id="retractZ" step="0.1" value="1.0">
+          </label>
+        </div>
+
+        <div>
+          <label>Głębokość docelowa listwy [mm]:
+            <input type="number" id="listwaDepth" step="0.1" value="-20">
+          </label>
+
+          <label>Skok na każdy przejazd [mm]:
+            <input type="number" id="listwaStep" step="0.1" value="5">
+          </label>
+        </div>
+
+      </div>
+    </fieldset>
+  </details>
+
+  <fieldset>
+    <legend>Formatka i półki</legend>
+    <div class="row">
+      <div>
+        <label>Wysokość formatki [mm]:
+          <input type="number" id="height" step="0.1" required>
+        </label>
+        <label>Szerokość formatki [mm]:
+          <input type="number" id="width" step="0.1" required>
+        </label>
+        <label>Ilość półek (auto):
+          <input type="number" id="shelves" min="0" step="1" value="0">
+        </label>
+        <label>
+          <input type="checkbox" id="customShelves">
+          Wpiszę wysokości półek samodzielnie
+        </label>
+        <label>Wysokości półek Y (mm, np. 200,450,700):
+          <input type="text" id="shelvesY">
+        </label>
+      </div>
+
+      <div>
+        <label>X1 – od przodu [mm]:
+          <input type="number" id="X1" step="0.1" value="37">
+        </label>
+        <label>X2 – od tyłu [mm]:
+          <input type="number" id="X2fromBack" step="0.1" value="37">
+        </label>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Nut, listwa, LED</legend>
+    <div class="row">
+      <div>
+        <label>Nut – odległość od tyłu [mm] (0 = brak):
+          <input type="number" id="nutOffset" step="0.1" value="0">
+        </label>
+      </div>
+
+      <div>
+        <label>Listwa – odległość podcięcia od tyłu [mm] (0 = brak):
+          <input type="number" id="listwaOffset" step="0.1" value="0">
+        </label>
+        <label><input type="checkbox" id="listwaLeft" checked> Podcięcie w LEWYM</label>
+        <label><input type="checkbox" id="listwaRight" checked> Podcięcie w PRAWYM</label>
+      </div>
+
+      <div>
+        <label><input type="checkbox" id="doEngraveLED"> Frez LED (U)</label>
+        <label>Start X od przodu [mm]:
+          <input type="number" id="ledStartX" step="0.1" value="37">
+        </label>
+        <label>Szerokość LED (X) [mm]:
+          <input type="number" id="ledWidthX" step="0.1" value="100">
+        </label>
+        <label>Wysokość LED (Y) [mm]:
+          <input type="number" id="ledHeightY" step="0.1" value="50">
+        </label>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Prowadniki zawiasów</legend>
+    <div class="row">
+      <div>
+        <label><input type="checkbox" id="addHinges"> Dodać prowadniki</label>
+        <label>Strona:
+          <select id="hingeSide">
+            <option value="B">B (oba)</option>
+            <option value="L">L (lewy)</option>
+            <option value="R">R (prawy)</option>
+          </select>
+        </label>
+        <label>Pozycje:
+          <select id="hingeChoice">
+            <option value="1">1 = 100 od dołu, 104 od góry</option>
+            <option value="2">2 = 70 od dołu, 74 od góry</option>
+            <option value="3">3 = własne (Y,Y,...)</option>
+          </select>
+        </label>
+        <label>Własne Y:
+          <input type="text" id="hingeCustom" placeholder="np. 100, 500, 900">
+        </label>
+      </div>
+
+      <div>
+        <label><input type="checkbox" id="addThird"> Dodać trzeci prowadnik</label>
+        <label>Trzeci:
+          <select id="thirdChoice">
+            <option value="1">1 = połowa</option>
+            <option value="2">2 = Y od dołu</option>
+          </select>
+        </label>
+        <label>Y trzeciego [mm]:
+          <input type="number" id="thirdY" step="0.1" value="0">
+        </label>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Kołki i matrixy</legend>
+    <div class="row">
+      <div>
+        <label><input type="checkbox" id="addDowels"> Kołki</label>
+        <label><input type="checkbox" id="dowelsLeft" checked> Kołki LEWY</label>
+        <label><input type="checkbox" id="dowelsRight" checked> Kołki PRAWY</label>
+      </div>
+
+      <div>
+        <label><input type="checkbox" id="addMatrix"> Matrixy</label>
+        <label><input type="checkbox" id="matrixLeft" checked> Matrixy LEWY</label>
+        <label><input type="checkbox" id="matrixRight" checked> Matrixy PRAWY</label>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label><input type="checkbox" id="midRailsDowels" checked> Kołki w środkowych</label>
+        <label><input type="checkbox" id="midRailsMatrix" checked> Matrixy w środkowych</label>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Wieńce środkowe</legend>
+    <div class="row">
+      <div>
+        <label>Ilość wieńców:
+          <input type="number" id="midRailsCount" min="0" step="1" value="0">
+        </label>
+        <label>Położenia Y (spód wieńca, np. 300,600):
+          <input type="text" id="midRailsY">
+        </label>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Pliki wyjściowe</legend>
+    <label>Nazwa bazowa:
+      <input type="text" id="baseName" value="G1">
+    </label>
+  </fieldset>
+
+  <button type="submit">Generuj G-code + podgląd</button>
+
+</form>
+
+<div id="viewerContainer">
+  <h2>Podgląd graficzny formatek</h2>
+
+  <div class="legend">
+    <span><span class="legend-box" style="background:#0074D9;"></span>Otwory półek</span>
+    <span><span class="legend-box" style="background:#FF4136;"></span>Kołki</span>
+    <span><span class="legend-box" style="background:#2ECC40;"></span>Matrixy</span>
+    <span><span class="legend-box" style="background:#FF851B;"></span>Prowadniki</span>
+    <span><span class="legend-box" style="background:#111111;"></span>Listwa / LED / Nut</span>
+  </div>
+
+  <div id="viewerCanvases">
+    <div>
+      <div>LEWY bok</div>
+      <canvas id="viewerCanvasLeft" width="380" height="500"></canvas>
+    </div>
+    <div>
+      <div>PRAWY bok</div>
+      <canvas id="viewerCanvasRight" width="380" height="500"></canvas>
+    </div>
+  </div>
+
+  <div id="measureInfo"></div>
+</div>
+
+<h2>Podgląd G-code – LEWY</h2>
+<textarea id="previewLeft" readonly></textarea>
+
+<h2>Podgląd G-code – PRAWY</h2>
+<textarea id="previewRight" readonly></textarea>
+
+<script>
+function fmt(v, d = 3) { return v.toFixed(d); }
+
+function saveFile(name, content) {
+  const blob = new Blob([content], { type: "text/plain" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+}
+
+function writeHeader(clearanceZ) {
+  return `( Made using CamBam )\n( Post processor: LinuxCNC )\nG21 G90 G61 G40\nG91.1\nG0 Z${fmt(clearanceZ)}\n`;
+}
+
+/* HELIXY, OTWORY, KOŁKI, MATRIXY */
+
+function HelixLevels(X, Y, depths, pr, feedZ, feedHelix, retractZ, clearanceZ, rapidFeed) {
+  if (pr <= 0) return "";
+  let o = "";
+  o += `G1 F${fmt(rapidFeed)} X${fmt(X)} Y${fmt(Y)}\n`;
+  o += `G0 Z${fmt(retractZ)}\n`;
+  depths.forEach(d => {
+    o += `G1 F${fmt(feedZ)} Z${fmt(d)}\n`;
+    o += `G2 X${fmt(X)} Y${fmt(Y)} I${fmt(-pr)} J0.000 F${fmt(feedHelix)}\n`;
+  });
+  o += `G0 Z${fmt(clearanceZ)}\n`;
+  return o;
+}
+
+function PocketSmallCircle(X, Y, Zt, feedZ, feedHelix, retractZ, clearanceZ, rapidFeed) {
+  let pr = 0.1;
+  let o = "";
+  o += `S1000\nG0 Z${fmt(clearanceZ)}\n`;
+  o += `G1 F${fmt(rapidFeed)} X${fmt(X)} Y${fmt(Y)}\n`;
+  o += `G0 Z${fmt(retractZ)}\n`;
+  o += `G1 F${fmt(feedZ)} Z${fmt(Zt)}\n`;
+  o += `G2 X${fmt(X)} Y${fmt(Y)} I${fmt(-pr)} J0.000 F${fmt(feedHelix)}\n`;
+  o += `G0 Z${fmt(clearanceZ)}\n`;
+  return o;
+}
+
+function DowelPocketThree(X, Y, pr, feedZ, feedHelix, retractZ, clearanceZ, rapidFeed) {
+  let levels = [-3.5, -7.0, -10.0];
+  let o = "";
+  o += `S1000\nG0 Z${fmt(clearanceZ)}\n`;
+  o += `G1 F${fmt(rapidFeed)} X${fmt(X)} Y${fmt(Y)}\n`;
+  o += `G0 Z${fmt(retractZ)}\n`;
+  levels.forEach(d => {
+    o += `G1 F${fmt(feedZ)} Z${fmt(d)}\n`;
+    o += `G2 X${fmt(X)} Y${fmt(Y)} I${fmt(-pr)} J0.000 F${fmt(feedHelix)}\n`;
+  });
+  o += `G0 Z${fmt(clearanceZ)}\n`;
+  return o;
+}
+
+function NutGrooveAlt(X, Ys, Ye, depths, feedZ, feedSlot, retractZ, clearanceZ) {
+  let o = "S1000\n";
+  depths.forEach((d, i) => {
+    o += `G0 Z${fmt(clearanceZ)}\n`;
+    let yStart = (i % 2 === 0) ? Ys : Ye;
+    let yEnd = (i % 2 === 0) ? Ye : Ys;
+    o += `G0 X${fmt(X)} Y${fmt(yStart)}\n`;
+    o += `G0 Z${fmt(retractZ)}\n`;
+    o += `G1 F${fmt(feedZ)} Z${fmt(d)}\n`;
+    o += `G1 F${fmt(feedSlot)} Y${fmt(yEnd)}\n`;
+  });
+  o += `G0 Z${fmt(clearanceZ)}\n`;
+  return o;
+}
+
+function EngraveLED_U(X1, X2, Y1, Y2, depths, feedZ, feedXY, retractZ, clearanceZ) {
+  let o = "S1000\n";
+  depths.forEach((d, i) => {
+    o += `G0 Z${fmt(clearanceZ)}\n`;
+    let sX = (i % 2 === 0) ? X1 : X2;
+    let eX = (i % 2 === 0) ? X2 : X1;
+    o += `G0 X${fmt(sX)} Y${fmt(Y1)}\n`;
+    o += `G0 Z${fmt(retractZ)}\n`;
+    o += `G1 F${fmt(feedZ)} Z${fmt(d)}\n`;
+    o += `G1 F${fmt(feedXY)} Y${fmt(Y2)}\n`;
+    o += `G1 X${fmt(eX)}\n`;
+    o += `G1 Y${fmt(Y1)}\n`;
+  });
+  o += `G0 Z${fmt(clearanceZ)}\n`;
+  return o;
+}
+
+/* SLOT LISTWY — BEZ ZAOKRĄGLEŃ */
+
+function SlotListwa(X1, X2, Y1, Y2, depths, feedZ, feedSlot, retractZ, clearanceZ) {
+  let o = "S1000\n";
+
+  o += `G0 Z${fmt(clearanceZ)}\n`;
+  o += `G0 X${fmt(X1)} Y${fmt(Y1)}\n`;
+  o += `G0 Z${fmt(retractZ)}\n`;
+
+  depths.forEach((d, i) => {
+    o += `G1 F${fmt(feedZ)} Z${fmt(d)}\n`;
+    o += `G1 F${fmt(feedSlot)} Y${fmt(Y2)}\n`;
+    o += `G1 X${fmt(X2)}\n`;
+    if (i < depths.length - 1) {
+      o += `G1 F${fmt(feedSlot)} X${fmt(X1)}\n`;
+      o += `G1 Y${fmt(Y1)}\n`;
+    }
+  });
+
+  o += `G0 Z${fmt(clearanceZ)}\n`;
+  return o;
+}
+
+/* OPTIMALIZACJA ŚCIEŻEK */
+
+function optimizePath(ops) {
+  if (!ops || ops.length <= 1) return ops;
+  const remaining = ops.slice();
+  const result = [];
+  let currentIndex = 0;
+  let bestDist0 = Infinity;
+
+  for (let i = 0; i < remaining.length; i++) {
+    const d = remaining[i].x * remaining[i].x + remaining[i].y * remaining[i].y;
+    if (d < bestDist0) { bestDist0 = d; currentIndex = i; }
+  }
+
+  let current = remaining.splice(currentIndex, 1)[0];
+  result.push(current);
+
+  while (remaining.length > 0) {
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const dx = remaining[i].x - current.x;
+      const dy = remaining[i].y - current.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestDist) { bestDist = d2; bestIdx = i; }
+    }
+    current = remaining.splice(bestIdx, 1)[0];
+    result.push(current);
+  }
+  return result;
+}
+
+let viewElements = [];
+
+/* GENEROWANIE G-CODE */
+
+function generateGcode() {
+  viewElements = [];
+
+  const toolDiameter = parseFloat(document.getElementById("toolDiameter").value);
+  const holeDia = parseFloat(document.getElementById("holeDiameter").value);
+  const dowelDia = parseFloat(document.getElementById("dowelDiameter").value);
+  const matrixDia = parseFloat(document.getElementById("matrixDiameter").value);
+
+  const feedZ = parseFloat(document.getElementById("feedZ").value);
+  const feedHelix = parseFloat(document.getElementById("feedHelix").value);
+  const feedSlot = parseFloat(document.getElementById("feedSlot").value);
+  const rapidFeed = parseFloat(document.getElementById("rapidFeed").value);
+  const clearanceZ = parseFloat(document.getElementById("clearanceZ").value);
+  const retractZ = parseFloat(document.getElementById("retractZ").value);
+
+  const listwaDepth = parseFloat(document.getElementById("listwaDepth").value);
+  const listwaStep = parseFloat(document.getElementById("listwaStep").value);
+
+  const height = parseFloat(document.getElementById("height").value);
+  const width = parseFloat(document.getElementById("width").value);
+
+  const shelvesAuto = parseInt(document.getElementById("shelves").value);
+  const customShelves = document.getElementById("customShelves").checked;
+  const shelvesYText = document.getElementById("shelvesY").value;
+
+  let X1 = parseFloat(document.getElementById("X1").value);
+  let X2fromBack = parseFloat(document.getElementById("X2fromBack").value);
+  let X2 = width - X2fromBack;
+
+  const nutOffset = parseFloat(document.getElementById("nutOffset").value);
+  const listwaOffset = parseFloat(document.getElementById("listwaOffset").value);
+  const listwaLeft = document.getElementById("listwaLeft").checked;
+  const listwaRight = document.getElementById("listwaRight").checked;
+
+  const doLED = document.getElementById("doEngraveLED").checked;
+  const ledStartX = parseFloat(document.getElementById("ledStartX").value);
+  const ledWidthX = parseFloat(document.getElementById("ledWidthX").value);
+  const ledHeightY = parseFloat(document.getElementById("ledHeightY").value);
+
+  const addHinges = document.getElementById("addHinges").checked;
+  const hingeSide = document.getElementById("hingeSide").value;
+  const hingeChoice = document.getElementById("hingeChoice").value;
+  const hingeCustom = document.getElementById("hingeCustom").value;
+
+  const addThird = document.getElementById("addThird").checked;
+  const thirdChoice = document.getElementById("thirdChoice").value;
+  const thirdY = parseFloat(document.getElementById("thirdY").value);
+
+  const addDowels = document.getElementById("addDowels").checked;
+  const dowelsLeft = document.getElementById("dowelsLeft").checked;
+  const dowelsRight = document.getElementById("dowelsRight").checked;
+
+  const addMatrix = document.getElementById("addMatrix").checked;
+  const matrixLeft = document.getElementById("matrixLeft").checked;
+  const matrixRight = document.getElementById("matrixRight").checked;
+
+  const midRailsDowels = document.getElementById("midRailsDowels").checked;
+  const midRailsMatrix = document.getElementById("midRailsMatrix").checked;
+
+  const midRailsCount = parseInt(document.getElementById("midRailsCount").value);
+  const midRailsYText = document.getElementById("midRailsY").value;
+
+  const baseName = document.getElementById("baseName").value || "G1";
+
+  let left = "";
+  let right = "";
+
+  left += writeHeader(clearanceZ);
+  right += writeHeader(clearanceZ);
+
+  left += "T4 M6\nG17\nM3 S1000\n";
+  right += "T4 M6\nG17\nM3 S1000\n";
+
+  let opsLeft_shelf = [], opsRight_shelf = [];
+  let opsLeft_hinge = [], opsRight_hinge = [];
+  let opsLeft_dowel = [], opsRight_dowel = [];
+  let opsLeft_matrix = [], opsRight_matrix = [];
+  let opsLeft_listwa = [], opsRight_listwa = [];
+  let opsLeft_led = [], opsRight_led = [];
+  let opsLeft_nut = [], opsRight_nut = [];
+
+  /* PÓŁKI */
+
+  let shelfYs = [];
+
+  if (customShelves && shelvesYText.trim() !== "") {
+    shelfYs = shelvesYText.split(",")
+      .map(s => parseFloat(s.trim()))
+      .filter(v => !isNaN(v) && v > 0 && v < height);
+  } else if (shelvesAuto > 0) {
+    for (let i = 1; i <= shelvesAuto; i++) {
+      const Ypos =
+        18 +
+        i * ((height - 36 - shelvesAuto * 18) / (shelvesAuto + 1)) +
+        (i - 1) * 18 +
+        9 -
+        11.6;
+      shelfYs.push(Ypos);
+    }
+  }
+
+  if (shelfYs.length > 0) {
+    const prBolt = (holeDia - toolDiameter) / 2.0;
+
+    shelfYs.forEach(Ypos => {
+      [X1, X2].forEach(Xpos => {
+        const depths = [-3.5, -7.0, -10.0];
+
+        const lx = Xpos;
+        const ly = Ypos;
+        const rx = Xpos;
+        const ry = height - Ypos;
+
+        opsLeft_shelf.push({
+          x: lx, y: ly,
+          gcode: () =>
+            HelixLevels(lx, ly, depths, prBolt, feedZ, feedHelix, retractZ, clearanceZ, rapidFeed)
+        });
+
+        opsRight_shelf.push({
+          x: rx, y: ry,
+          gcode: () =>
+            HelixLevels(rx, ry, depths, prBolt, feedZ, feedHelix, retractZ, clearanceZ, rapidFeed)
+        });
+
+        viewElements.push({ type: "shelf", x: lx, y: ly, r: holeDia / 2 });
+      });
+    });
+  }
+
+  /* PROWADNIKI ZAWIASÓW */
+
+  let hingePos = [];
+
+  if (addHinges) {
+    if (hingeChoice === "1") hingePos = [100, height - 104];
+    else if (hingeChoice === "2") hingePos = [70, height - 74];
+    else if (hingeChoice === "3" && hingeCustom.trim() !== "") {
+      hingePos = hingeCustom.split(",")
+        .map(s => parseFloat(s.trim()))
+        .filter(v => !isNaN(v));
+    }
+  }
+
+  if (addHinges && hingePos.length > 0) {
+    hingePos.forEach(hp => {
+      [-16, 16].forEach(o => {
+
+        const ly = hp + o;
+        const ry = height - (hp + o);
+
+        const lx = 37.0;
+        const rx = 37.0;
+
+        if (hingeSide === "L" || hingeSide === "B") {
+          opsLeft_hinge.push({
+            x: lx, y: ly,
+            gcode: () => PocketSmallCircle(lx, ly, -4.0, feedZ, feedHelix, retractZ, clearanceZ, rapidFeed)
+          });
+          viewElements.push({ type: "hinge", x: lx, y: ly, r: 5 });
+        }
+
+        if (hingeSide === "R" || hingeSide === "B") {
+          opsRight_hinge.push({
+            x: rx, y: ry,
+            gcode: () => PocketSmallCircle(rx, ry, -4.0, feedZ, feedHelix, retractZ, clearanceZ, rapidFeed)
+          });
+        }
+
+      });
+    });
+
+    if (addThird) {
+      const bottomY = hingePos[0];
+      const topY = hingePos[hingePos.length - 1];
+
+      let tY = -1;
+      if (thirdChoice === "1") tY = (bottomY + topY) / 2;
+      else if (thirdChoice === "2" && thirdY > 0) tY = thirdY;
+
+      if (tY > 0) {
+        [-16, 16].forEach(o => {
+
+          const ly = tY + o;
+          const ry = height - (tY + o);
+
+          const lx = 37.0;
+          const rx = 37.0;
+
+          if (hingeSide === "L" || hingeSide === "B") {
+            opsLeft_hinge.push({
+              x: lx, y: ly,
+              gcode: () => PocketSmallCircle(lx, ly, -4.0, feedZ, feedHelix, retractZ, clearanceZ, rapidFeed)
+            });
+            viewElements.push({ type: "hinge", x: lx, y: ly, r: 5 });
+          }
+
+          if (hingeSide === "R" || hingeSide === "B") {
+            opsRight_hinge.push({
+              x: rx, y: ry,
+              gcode: () => PocketSmallCircle(rx, ry, -4.0, feedZ, feedHelix, retractZ, clearanceZ, rapidFeed)
+            });
+          }
+
+        });
+      }
+    }
+  }
+
+  /* KOŁKI I MATRIXY */
+
+  const prD = (dowelDia - toolDiameter) / 2.0;
+  const prM = (matrixDia - toolDiameter) / 2.0;
+
+  function addDowelRow(Yd) {
+    const frontXs = [40.0, 72.0];
+    const backXs = [width - 40.0, width - 72.0];
+    const allXs = frontXs.concat(backXs);
+
+    allXs.forEach(Xd => {
+      const lx = Xd;
+      const ly = Yd;
+      const rx = Xd;
+      const ry = height - Yd;
+
+      if (addDowels && dowelsLeft) {
+        opsLeft_dowel.push({
+          x: lx, y: ly,
+          gcode: () => DowelPocketThree(lx, ly, prD, feedZ, feedHelix, retractZ, clearanceZ, rapidFeed)
+        });
+        viewElements.push({ type: "dowel", x: lx, y: ly, r: dowelDia / 2 });
+      }
+
+      if (addDowels && dowelsRight) {
+        opsRight_dowel.push({
+          x: rx, y: ry,
+          gcode: () => DowelPocketThree(rx, ry, prD, feedZ, feedHelix, retractZ, clearanceZ, rapidFeed)
+        });
+      }
+    });
+  }
+
+  function addMatrixRow(Ym) {
+    const mXs = [30.0, width - 30.0, width / 2.0];
+    const depths = [-5, -10, -15, -20];
+
+    mXs.forEach(mx => {
+      const lx = mx;
+      const ly = Ym;
+      const rx = mx;
+      const ry = height - Ym;
+
+      if (addMatrix && matrixLeft) {
+        opsLeft_matrix.push({
+          x: lx, y: ly,
+          gcode: () => HelixLevels(lx, ly, depths, prM, feedZ, feedHelix, retractZ, clearanceZ, rapidFeed)
+        });
+        viewElements.push({ type: "matrix", x: lx, y: ly, r: matrixDia / 2 });
+      }
+
+      if (addMatrix && matrixRight) {
+        opsRight_matrix.push({
+          x: rx, y: ry,
+          gcode: () => HelixLevels(rx, ry, depths, prM, feedZ, feedHelix, retractZ, clearanceZ, rapidFeed)
+        });
+      }
+    });
+  }
+
+  const dowelYsBase = [9.5, height - 9.5];
+  if (addDowels) dowelYsBase.forEach(Yd => addDowelRow(Yd));
+
+  const mYsBase = [height - 9.0, 9.0];
+  if (addMatrix) mYsBase.forEach(Ym => addMatrixRow(Ym));
+
+  let midYs = [];
+  if (midRailsCount > 0 && midRailsYText.trim() !== "") {
+    midYs = midRailsYText.split(",")
+      .map(s => parseFloat(s.trim()))
+      .filter(v => !isNaN(v) && v > 0 && v < height);
+  }
+
+  if (midYs.length > 0) {
+    midYs.forEach(Ybottom => {
+      const Ycenter = Ybottom + 9.0;
+      if (midRailsDowels && addDowels) addDowelRow(Ycenter);
+      if (midRailsMatrix && addMatrix) addMatrixRow(Ycenter);
+    });
+  }
+
+  /* SLOT LISTWY */
+
+  if (listwaOffset > 0) {
+    const comp = toolDiameter / 2;
+    const X1s = width - listwaOffset + comp;
+    const X2s = X1s + listwaOffset;
+
+    const Y1s = height;
+    const Y2s = height - 123;
+
+    let depths = [];
+    for (let d = listwaStep; d <= Math.abs(listwaDepth); d += listwaStep) {
+      depths.push(-d);
+    }
+    if (depths.length === 0 || depths[depths.length - 1] !== listwaDepth) depths.push(listwaDepth);
+
+    if (listwaLeft) {
+      opsLeft_listwa.push({
+        x: (X1s + X2s) / 2,
+        y: (Y1s + Y2s) / 2,
+        gcode: () =>
+          SlotListwa(X1s, X2s, Y1s, Y2s, depths, feedZ, feedSlot, retractZ, clearanceZ)
+      });
+      viewElements.push({ type: "listwa", x: X1s, y: Y2s, x2: X2s, y2: Y1s });
+    }
+
+    if (listwaRight) {
+      opsRight_listwa.push({
+        x: (X1s + X2s) / 2,
+        y: height - (Y1s + Y2s) / 2,
+        gcode: () =>
+          SlotListwa(
+            X1s, X2s,
+            height - Y1s,
+            height - Y2s,
+            depths, feedZ, feedSlot, retractZ, clearanceZ
+          )
+      });
+    }
+  }
+
+  /* LED */
+
+  if (doLED) {
+    const comp = toolDiameter / 2.0;
+    const X1e = ledStartX + comp;
+    const X2e = ledStartX + ledWidthX - comp;
+    const Y1e = comp;
+    const Y2e = ledHeightY - comp;
+
+    const depths = [-4, -8, -12, -16, -20];
+
+    opsLeft_led.push({
+      x: (X1e + X2e) / 2,
+      y: (Y1e + Y2e) / 2,
+      gcode: () =>
+        EngraveLED_U(X1e, X2e, Y1e, Y2e, depths, feedZ, feedSlot, retractZ, clearanceZ)
+    });
+
+    opsRight_led.push({
+      x: (X1e + X2e) / 2,
+      y: height - (Y1e + Y2e) / 2,
+      gcode: () =>
+        EngraveLED_U(X1e, X2e, height - Y1e, height - Y2e, depths, feedZ, feedSlot, retractZ, clearanceZ)
+    });
+
+    viewElements.push({ type: "led", x: X1e, y: Y1e, x2: X2e, y2: Y2e });
+  }
+
+  /* NUT */
+
+  if (nutOffset > 0) {
+    const compNut = toolDiameter / 2.0;
+    const nutX = width - nutOffset + compNut;
+    const depths = [-5, -10];
+
+    opsLeft_nut.push({
+      x: nutX,
+      y: height / 2,
+      gcode: () => NutGrooveAlt(nutX, 0.0, height, depths, feedZ, feedSlot, retractZ, clearanceZ)
+    });
+
+    opsRight_nut.push({
+      x: nutX,
+      y: height / 2,
+      gcode: () => NutGrooveAlt(nutX, height, 0.0, depths, feedZ, feedSlot, retractZ, clearanceZ)
+    });
+
+    viewElements.push({ type: "nut", x: nutX, y: 0, x2: nutX, y2: height });
+  }
+
+  /* OPTIMALIZACJA KOLEJNOŚCI */
+
+  opsLeft_shelf = optimizePath(opsLeft_shelf);
+  opsRight_shelf = optimizePath(opsRight_shelf);
+
+  opsLeft_hinge = optimizePath(opsLeft_hinge);
+  opsRight_hinge = optimizePath(opsRight_hinge);
+
+  opsLeft_dowel = optimizePath(opsLeft_dowel);
+  opsRight_dowel = optimizePath(opsRight_dowel);
+
+  opsLeft_matrix = optimizePath(opsLeft_matrix);
+  opsRight_matrix = optimizePath(opsRight_matrix);
+
+  opsLeft_listwa = optimizePath(opsLeft_listwa);
+  opsRight_listwa = optimizePath(opsRight_listwa);
+
+  opsLeft_led = optimizePath(opsLeft_led);
+  opsRight_led = optimizePath(opsRight_led);
+
+  opsLeft_nut = optimizePath(opsLeft_nut);
+  opsRight_nut = optimizePath(opsRight_nut);
+
+  /* SKŁADANIE G-CODE */
+
+  function appendOps(list, target) {
+    list.forEach(op => { target += op.gcode(); });
+    return target;
+  }
+
+  left = appendOps(opsLeft_shelf, left);
+  left = appendOps(opsLeft_hinge, left);
+  left = appendOps(opsLeft_dowel, left);
+  left = appendOps(opsLeft_matrix, left);
+  left = appendOps(opsLeft_listwa, left);
+  left = appendOps(opsLeft_led, left);
+  left = appendOps(opsLeft_nut, left);
+
+  right = appendOps(opsRight_shelf, right);
+  right = appendOps(opsRight_hinge, right);
+  right = appendOps(opsRight_dowel, right);
+  right = appendOps(opsRight_matrix, right);
+  right = appendOps(opsRight_listwa, right);
+  right = appendOps(opsRight_led, right);
+  right = appendOps(opsRight_nut, right);
+
+  left += `G0 Z${fmt(clearanceZ)}\nM5\nM30\n`;
+  right += `G0 Z${fmt(clearanceZ)}\nM5\nM30\n`;
+
+  document.getElementById("previewLeft").value = left;
+  document.getElementById("previewRight").value = right;
+
+  const baseNameSafe = baseName.replace(/[^a-zA-Z0-9_-]/g, "_");
+  saveFile(baseNameSafe + "_L.nc", left);
+  saveFile(baseNameSafe + "_R.nc", right);
+
+  drawViewer(width, height);
+}
+
+/* VIEWER */
+
+const canvasLeft = document.getElementById("viewerCanvasLeft");
+const canvasRight = document.getElementById("viewerCanvasRight");
+const ctxLeft = canvasLeft.getContext("2d");
+const ctxRight = canvasRight.getContext("2d");
+const measureInfo = document.getElementById("measureInfo");
+
+let viewWidth = canvasLeft.width;
+let viewHeight = canvasLeft.height;
+
+let scale = 1;
+let offsetX = 0;
+let offsetY = 0;
+let panOffsetX = 0;
+let panOffsetY = 0;
+
+let isPanning = false;
+let panStartX = 0;
+let panStartY = 0;
+
+let snapPoint = null;
+let measureA = null;
+let measureB = null;
+
+function worldToScreen(x, y, side, width, height) {
+  let wy = (side === "L") ? y : (height - y);
+  return {
+    x: (x * scale) + offsetX + panOffsetX,
+    y: (viewHeight - (wy * scale)) + offsetY + panOffsetY
+  };
+}
+
+function screenToWorld(x, y, side, width, height) {
+  let wy = (viewHeight - (y - offsetY - panOffsetY)) / scale;
+  let realY = (side === "L") ? wy : (height - wy);
+  return {
+    x: (x - offsetX - panOffsetX) / scale,
+    y: realY
+  };
+}
+
+function drawViewer(width, height) {
+  viewWidth = canvasLeft.width;
+  viewHeight = canvasLeft.height;
+
+  const margin = 40;
+  const sx = (viewWidth - 2 * margin) / width;
+  const sy = (viewHeight - 2 * margin) / height;
+  scale = Math.min(sx, sy);
+
+  offsetX = margin;
+  offsetY = margin;
+
+  panOffsetX = 0;
+  panOffsetY = 0;
+
+  measureA = null;
+  measureB = null;
+  snapPoint = null;
+
+  renderViewer(width, height);
+}
+
+function renderViewer(width, height) {
+  [ctxLeft, ctxRight].forEach(ctx => {
+    ctx.clearRect(0, 0, viewWidth, viewHeight);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, viewWidth, viewHeight);
+  });
+
+  ["L", "R"].forEach(side => {
+    const ctx = side === "L" ? ctxLeft : ctxRight;
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 1;
+
+    let p1 = worldToScreen(0, 0, side, width, height);
+    let p2 = worldToScreen(width, height, side, width, height);
+
+    ctx.strokeRect(p1.x, p2.y, (p2.x - p1.x), (p1.y - p2.y));
+  });
+
+  ["L", "R"].forEach(side => {
+    const ctx = side === "L" ? ctxLeft : ctxRight;
+
+    viewElements.forEach(el => {
+
+      if (el.type === "shelf") {
+        ctx.fillStyle = "#0074D9";
+        let p = worldToScreen(el.x, el.y, side, width, height);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(2, el.r * scale * 0.4), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      else if (el.type === "dowel") {
+        ctx.fillStyle = "#FF4136";
+        let p = worldToScreen(el.x, el.y, side, width, height);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(2, el.r * scale * 0.4), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      else if (el.type === "matrix") {
+        ctx.fillStyle = "#2ECC40";
+        let p = worldToScreen(el.x, el.y, side, width, height);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(2, el.r * scale * 0.4), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      else if (el.type === "hinge") {
+        ctx.fillStyle = "#FF851B";
+        let p = worldToScreen(el.x, el.y, side, width, height);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      else if (el.type === "listwa" || el.type === "led" || el.type === "nut") {
+        ctx.strokeStyle = "#111111";
+        ctx.lineWidth = 2;
+
+        let pA = worldToScreen(el.x, el.y, side, width, height);
+        let pB = worldToScreen(el.x2, el.y2, side, width, height);
+
+        if (el.type === "nut") {
+          ctx.beginPath();
+          ctx.moveTo(pA.x, pA.y);
+          ctx.lineTo(pB.x, pB.y);
+          ctx.stroke();
+        } else {
+          ctx.strokeRect(
+            Math.min(pA.x, pB.x),
+            Math.min(pA.y, pB.y),
+            Math.abs(pB.x - pA.x),
+            Math.abs(pB.y - pA.y)
+          );
+        }
+      }
+    });
+  });
+
+  if (snapPoint) {
+    [ctxLeft, ctxRight].forEach((ctx, idx) => {
+      const side = idx === 0 ? "L" : "R";
+      ctx.strokeStyle = "#0000ff";
+      ctx.lineWidth = 1;
+      let p = worldToScreen(snapPoint.x, snapPoint.y, side, width, height);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+  }
+
+  [ctxLeft, ctxRight].forEach((ctx, idx) => {
+    const side = idx === 0 ? "L" : "R";
+    ctx.strokeStyle = "#FF00FF";
+    ctx.lineWidth = 1.5;
+
+    if (measureA) {
+      let p = worldToScreen(measureA.x, measureA.y, side, width, height);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (measureB) {
+      let p = worldToScreen(measureB.x, measureB.y, side, width, height);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (measureA && measureB) {
+      let pA = worldToScreen(measureA.x, measureA.y, side, width, height);
+      let pB = worldToScreen(measureB.x, measureB.y, side, width, height);
+      ctx.beginPath();
+      ctx.moveTo(pA.x, pA.y);
+      ctx.lineTo(pB.x, pB.y);
+      ctx.stroke();
+    }
+  });
+
+  updateMeasureInfo(width, height);
+}
+
+function findSnapPoint(wx, wy) {
+  let best = null;
+  let bestDist = Infinity;
+
+  viewElements.forEach(el => {
+    let dx = el.x - wx;
+    let dy = el.y - wy;
+    let d2 = dx * dx + dy * dy;
+    if (d2 < bestDist) {
+      bestDist = d2;
+      best = { x: el.x, y: el.y, el };
+    }
+  });
+
+  return best;
+}
+
+function updateMeasureInfo(width, height) {
+  if (!snapPoint && !measureA && !measureB) {
+    measureInfo.textContent =
+      "Przesuń myszką nad elementami, kliknij dwa punkty aby zmierzyć odległość.\n" +
+      "Prawy przycisk resetuje. Środkowy (lub LPM+Shift) – przesuwanie, kółko – zoom.";
+    return;
+  }
+
+  let lines = [];
+
+  if (snapPoint) {
+    let sx = snapPoint.x;
+    let sy = snapPoint.y;
+
+    lines.push(`SNAP: X=${fmt(sx, 2)} mm, Y=${fmt(sy, 2)} mm`);
+
+    let dLeft = sx;
+    let dRight = width - sx;
+    let dBottom = sy;
+    let dTop = height - sy;
+
+    lines.push(
+      `Do krawędzi: lewa=${fmt(dLeft, 2)}  prawa=${fmt(dRight, 2)}  dół=${fmt(dBottom, 2)}  góra=${fmt(dTop, 2)} mm`
+    );
+
+    let bestOther = null;
+    let bestDist = Infinity;
+
+    viewElements.forEach(el => {
+      if (el === snapPoint.el) return;
+      let dx = el.x - sx;
+      let dy = el.y - sy;
+      let d = Math.sqrt(dx * dx + dy * dy);
+      if (d < bestDist) {
+        bestDist = d;
+        bestOther = el;
+      }
+    });
+
+    if (bestOther) {
+      lines.push(
+        `Najbliższy inny element: d=${fmt(bestDist, 2)} mm (X=${fmt(bestOther.x, 2)}, Y=${fmt(bestOther.y, 2)})`
+      );
+    }
+  }
+
+  if (measureA && measureB) {
+    let dx = measureB.x - measureA.x;
+    let dy = measureB.y - measureA.y;
+    let d = Math.sqrt(dx * dx + dy * dy);
+    lines.push(
+      `Pomiędzy A(X=${fmt(measureA.x, 2)},Y=${fmt(measureA.y, 2)}) a B(X=${fmt(measureB.x, 2)},Y=${fmt(measureB.y, 2)}): d=${fmt(d, 2)} mm`
+    );
+  }
+
+  measureInfo.textContent = lines.join("\n");
+}
+
+function handleMouseMove(e, side, canvas, width, height) {
+  const rect = canvas.getBoundingClientRect();
+  const sx = e.clientX - rect.left;
+  const sy = e.clientY - rect.top;
+
+  if (isPanning) {
+    panOffsetX = (sx - panStartX);
+    panOffsetY = (sy - panStartY);
+    renderViewer(width, height);
+    return;
+  }
+
+  const wp = screenToWorld(sx, sy, side, width, height);
+  const snap = findSnapPoint(wp.x, wp.y);
+  snapPoint = snap;
+
+  renderViewer(width, height);
+}
+
+function handleMouseDown(e, side, canvas, width, height) {
+  const rect = canvas.getBoundingClientRect();
+  const sx = e.clientX - rect.left;
+  const sy = e.clientY - rect.top;
+
+  if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+    isPanning = true;
+    panStartX = sx - panOffsetX;
+    panStartY = sy - panOffsetY;
+    return;
+  }
+
+  if (e.button === 2) {
+    measureA = null;
+    measureB = null;
+    renderViewer(width, height);
+    return;
+  }
+
+  if (e.button === 0) {
+    const wp = screenToWorld(sx, sy, side, width, height);
+    const snap = findSnapPoint(wp.x, wp.y);
+    const p = snap ? { x: snap.x, y: snap.y } : wp;
+
+    if (!measureA) measureA = p;
+    else if (!measureB) measureB = p;
+    else {
+      measureA = p;
+      measureB = null;
+    }
+
+    renderViewer(width, height);
+  }
+}
+
+function handleMouseUp(e, width, height) {
+  if (isPanning) {
+    isPanning = false;
+    offsetX += panOffsetX;
+    offsetY += panOffsetY;
+    panOffsetX = 0;
+    panOffsetY = 0;
+    renderViewer(width, height);
+  }
+}
+
+function handleWheel(e, side, canvas, width, height) {
+  e.preventDefault();
+
+  const rect = canvas.getBoundingClientRect();
+  const sx = e.clientX - rect.left;
+  const sy = e.clientY - rect.top;
+
+  const before = screenToWorld(sx, sy, side, width, height);
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+
+  scale *= factor;
+
+  const after = worldToScreen(before.x, before.y, side, width, height);
+
+  offsetX += (sx - after.x);
+  offsetY += (sy - after.y);
+
+  renderViewer(width, height);
+}
+
+function attachCanvasEvents(canvas, side, width, height) {
+  canvas.addEventListener("mousemove", e =>
+    handleMouseMove(e, side, canvas, width, height)
+  );
+
+  canvas.addEventListener("mousedown", e =>
+    handleMouseDown(e, side, canvas, width, height)
+  );
+
+  canvas.addEventListener("mouseup", e =>
+    handleMouseUp(e, width, height)
+  );
+
+  canvas.addEventListener("mouseleave", e => {
+    if (isPanning) {
+      isPanning = false;
+      offsetX += panOffsetX;
+      offsetY += panOffsetY;
+      panOffsetX = 0;
+      panOffsetY = 0;
+    }
+    snapPoint = null;
+    renderViewer(width, height);
+  });
+
+  canvas.addEventListener("wheel", e =>
+    handleWheel(e, side, canvas, width, height)
+  );
+
+  canvas.addEventListener("contextmenu", e => e.preventDefault());
+}
+
+document.getElementById("gcodeForm").addEventListener("submit", function (e) {
+  e.preventDefault();
+  generateGcode();
+
+  const width = parseFloat(document.getElementById("width").value);
+  const height = parseFloat(document.getElementById("height").value);
+
+  attachCanvasEvents(canvasLeft, "L", width, height);
+  attachCanvasEvents(canvasRight, "R", width, height);
+});
+</script>
+</body>
+</html>
