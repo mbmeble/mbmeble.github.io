@@ -1,8 +1,8 @@
 var APP_DATA = {
   "scenes": [
     {
-      "id": "0-lazienka2",
-      "name": "lazienka2",
+      "id": "0-lazienka1",
+      "name": "lazienka1",
       "levels": [
         {
           "tileSize": 256,
@@ -28,12 +28,19 @@ var APP_DATA = {
         "yaw": 0,
         "fov": 1.5707963267948966
       },
-      "linkHotspots": [],
+      "linkHotspots": [
+        {
+          "yaw": 1.5922507645504433,
+          "pitch": 0.18302965632062396,
+          "rotation": 7.0685834705770345,
+          "target": "1-lazienka1otw"
+        }
+      ],
       "infoHotspots": []
     },
     {
-      "id": "1-lazienka2otw",
-      "name": "lazienka2otw",
+      "id": "1-lazienka1otw",
+      "name": "lazienka1otw",
       "levels": [
         {
           "tileSize": 256,
@@ -59,11 +66,18 @@ var APP_DATA = {
         "yaw": 0,
         "fov": 1.5707963267948966
       },
-      "linkHotspots": [],
+      "linkHotspots": [
+        {
+          "yaw": 1.3518504777970897,
+          "pitch": 0.18423196336689607,
+          "rotation": 0.7853981633974483,
+          "target": "0-lazienka1"
+        }
+      ],
       "infoHotspots": []
     }
   ],
-  "name": "wc",
+  "name": "lazienka",
   "settings": {
     "mouseViewMode": "drag",
     "autorotateEnabled": true,
