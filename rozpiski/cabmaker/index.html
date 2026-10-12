@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CabMaker → Part List Konwerter</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --card:#0b1220; --line:#334155;
+    --acc:#38bdf8; --txt:#e2e8f0; --mut:#94a3b8;
+    --edited:#fbbf24; --edge:#7dd3fc;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;
+       background:var(--bg);color:var(--txt);font-size:14px}
+  header{padding:18px 24px;background:var(--panel);border-bottom:1px solid var(--line)}
+  header h1{margin:0 0 4px;font-size:1.15rem;color:var(--acc)}
+  header p{margin:0;color:var(--mut);font-size:.85rem}
+  main{padding:18px;max-width:1700px;margin:0 auto;display:flex;
+       flex-direction:column;gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;
+        position:relative}
+  .card h2{margin:0 0 10px;font-size:1rem;color:var(--acc);
+           display:flex;align-items:center;gap:8px}
+  .card h2 .num{background:var(--acc);color:#04283a;border-radius:50%;
+                width:22px;height:22px;display:inline-flex;align-items:center;
+                justify-content:center;font-size:.75rem;font-weight:700}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+  button{background:var(--acc);color:#04283a;border:0;padding:8px 14px;
+         border-radius:8px;cursor:pointer;font-weight:600;font-size:.85rem;
+         font-family:inherit}
+  button:hover{filter:brightness(1.1)}
+  button.ghost{background:var(--line);color:var(--txt)}
+  button.warn{background:#b45309;color:#fff}
+  button.danger{background:#dc2626;color:#fff}
+  button.small{padding:4px 8px;font-size:.75rem}
+  input[type=text],input[type=number],input[type=file],select{
+    background:var(--card);color:var(--txt);border:1px solid var(--line);
+    border-radius:6px;padding:6px 8px;font-family:inherit;font-size:.82rem;
+    outline:none;width:100%}
+  input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--acc)}
+  input[type=file]{color:var(--mut);font-size:.8rem;width:auto}
+  input[type=checkbox]{width:20px;height:20px;cursor:pointer;accent-color:#22c55e}
+  table{border-collapse:collapse;width:100%;font-size:.78rem}
+  th,td{padding:3px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+  th{background:#132033;color:var(--acc);font-weight:600;font-size:.7rem;
+     text-transform:uppercase;letter-spacing:.4px;position:sticky;top:0;z-index:2}
+  .tbl-wrap{max-height:520px;overflow:auto;border:1px solid var(--line);
+            border-radius:8px;background:var(--card)}
+  .input-wrap{max-height:420px}
+  tr:nth-child(even) td{background:#0e1728}
+  tr:hover td{background:#16233b}
+
+  .paste-hint{
+    position:absolute;top:56px;right:20px;
+    background:rgba(56,189,248,.12);border:1px dashed var(--acc);
+    color:var(--acc);padding:6px 12px;border-radius:8px;
+    font-size:.75rem;pointer-events:none;transition:opacity .3s;
+  }
+  .paste-hint.hidden{opacity:0}
+  .paste-flash{
+    position:absolute;inset:0;border-radius:12px;
+    background:rgba(34,197,94,.15);pointer-events:none;
+    opacity:0;transition:opacity .25s;
+  }
+  .paste-flash.on{opacity:1}
+
+  .in-cell{
+    background:transparent;border:1px solid transparent;color:inherit;
+    font:inherit;padding:3px 5px;width:100%;border-radius:4px;
+    font-family:ui-monospace,Consolas,monospace;font-size:.76rem;
+    outline:none;min-width:40px;
+  }
+  .in-cell:hover{border-color:#334155;background:#0b1220}
+  .in-cell:focus{border-color:var(--acc);background:#0b1220;color:#fff}
+  .in-cell.num{text-align:right;font-variant-numeric:tabular-nums}
+  .in-cell.edg{text-align:center;color:var(--edge);font-weight:600}
+
+  .cell-input{
+    background:transparent;border:1px solid transparent;color:inherit;
+    font:inherit;padding:3px 5px;width:100%;border-radius:4px;
+    font-family:inherit;outline:none;min-width:40px;
+  }
+  .cell-input:hover{border-color:#334155;background:#0b1220}
+  .cell-input:focus{border-color:var(--acc);background:#0b1220;color:#fff}
+  .cell-input.edited{
+    border-color:var(--edited);
+    background:rgba(251,191,36,.10);
+    color:#fde68a;font-weight:600;
+  }
+  .cell-input.edge{font-family:ui-monospace,Consolas,monospace;text-align:center;font-weight:600;color:#fde68a}
+  .cell-input.edge.zero{color:#475569;font-weight:400}
+  .cell-input.num{text-align:right;font-variant-numeric:tabular-nums}
+  td.edited-cell{background:rgba(251,191,36,.04)!important}
+  .mark-edited{color:var(--edited);font-weight:700;font-size:.75rem}
+
+  .cell-select{
+    background:transparent;border:1px solid transparent;
+    font:inherit;font-weight:700;padding:3px 4px;cursor:pointer;
+    text-align:center;width:100%;border-radius:4px;outline:none;
+  }
+  .cell-select.g1{color:#4ade80}
+  .cell-select.g0{color:#64748b}
+  .cell-select:hover{border-color:#334155;background:#0b1220}
+  .cell-select.edited{border-color:var(--edited);background:rgba(251,191,36,.10)}
+
+  .flag1{color:#4ade80;font-weight:700;text-align:center}
+  .flag0{color:#64748b;text-align:center}
+  .badge{display:inline-block;background:#132033;border:1px solid var(--line);
+         border-radius:6px;padding:3px 9px;font-size:.72rem;color:var(--mut)}
+  .badge.good{color:#4ade80;border-color:#166534}
+  .badge.warn{color:var(--edited);border-color:#92400e}
+  .hint{color:var(--mut);font-size:.78rem;margin:4px 0 8px;line-height:1.5}
+  .hint code{background:#132033;padding:1px 5px;border-radius:4px;color:#fde68a;font-size:.75rem}
+  .grain-yes{color:#4ade80}
+  .grain-no{color:#94a3b8}
+  .mat-code{font-family:ui-monospace,Consolas,monospace;color:var(--edge);font-weight:600}
+  .empty-state{color:#475569;text-align:center;padding:22px}
+  .arrow{color:var(--mut);margin:0 4px;font-size:1rem}
+  .del-row{background:transparent;border:0;color:#ef4444;cursor:pointer;
+           font-weight:700;padding:2px 6px;font-size:.9rem}
+  .del-row:hover{color:#fca5a5}
+
+  tr.mat-excluded td { opacity:.55; }
+  tr.mat-excluded td:first-child .mat-code { text-decoration: line-through; }
+  tr.mat-excluded:hover td { opacity:.75; }
+  .badge-excluded {
+    display:inline-block;background: rgba(220,38,38,.2);
+    border: 1px solid rgba(220,38,38,.5);
+    color: #fca5a5;font-size:.62rem;
+    padding:1px 6px;border-radius:4px;margin-left:6px;font-weight:600;
+    text-transform:uppercase;letter-spacing:.4px;vertical-align:middle;
+  }
+
+  .edges-cell { display:flex;flex-wrap:wrap;gap:6px;align-items:center; }
+  .edge-chip {
+    display:inline-flex;align-items:center;gap:4px;
+    background: rgba(56,189,248,.08);
+    border: 1px solid rgba(56,189,248,.25);
+    padding: 2px 4px 2px 7px; border-radius: 7px;
+  }
+  .edge-chip .letter-badge{
+    display:inline-block;background: #132033;
+    border: 1px solid var(--line);color: var(--edge);
+    font-family: ui-monospace,Consolas,monospace;
+    font-weight:700;font-size:.75rem;
+    padding: 1px 7px;border-radius: 5px;
+    min-width: 22px;text-align: center;
+  }
+  .edge-chip input{
+    width: 110px;padding: 3px 6px;font-size: .73rem;
+    background: #0b1220;border: 1px solid #334155;
+    border-radius: 4px;color: #fde68a;
+    font-family: ui-monospace,Consolas,monospace;outline: none;
+  }
+  .edge-chip input:focus{ border-color: var(--acc); color: #fff; }
+  .edge-chip input::placeholder{ color: #475569; font-style: italic; }
+  .edge-chip .x{
+    background: transparent;border: 0;color: #ef4444;cursor: pointer;
+    padding: 2px 5px;font-size: .8rem;font-weight: 700;
+    border-radius: 4px;line-height: 1;
+  }
+  .edge-chip .x:hover{ background: rgba(239,68,68,.15); color:#fca5a5; }
+  .add-edge-btn{
+    background: transparent;border: 1px dashed #334155;color: var(--mut);
+    padding: 4px 10px;border-radius: 6px;font-size: .72rem;cursor: pointer;
+    font-weight: 600;font-family: inherit;
+  }
+  .add-edge-btn:hover{ border-color: var(--acc); color: var(--acc); }
+  .no-edges{ color: #475569;font-size: .72rem;font-style: italic; }
+
+  /* === drag & drop materiałów === */
+  .grip-cell { width:28px; text-align:center; padding-left:2px !important; padding-right:2px !important; }
+  .grip {
+    display:inline-block;cursor:grab;color:#64748b;
+    font-size:15px;font-weight:700;line-height:1;
+    letter-spacing:-2px;padding:3px 4px;user-select:none;
+    border-radius:4px;transition:color .15s, background .15s;
+  }
+  .grip:hover { color:var(--acc); background:rgba(56,189,248,.10); }
+  .grip:active { cursor:grabbing; }
+  tr.dragging { opacity:.35; }
+  tr.drag-over-top    { box-shadow: inset 0  3px 0 var(--acc); }
+  tr.drag-over-bottom { box-shadow: inset 0 -3px 0 var(--acc); }
+
+  /* === wąskie kolumny w tabeli wynikowej === */
+  #outputTable th.col-narrow,
+  #outputTable td.col-narrow { width:70px; max-width:70px; }
+  #outputTable th.col-tiny,
+  #outputTable td.col-tiny   { width:58px; max-width:58px; }
+  #outputTable th.col-edge,
+  #outputTable td.col-edge   { width:90px; max-width:90px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔧 CabMaker → Part List Konwerter</h1>
+  <p>Wklej plik → auto-detekcja materiałów i liter okleiny → ustaw mapowania → przeciągnij za ⠿ aby ustawić kolejność → pobierz Part List dla FastCut.</p>
+</header>
+
+<main>
+
+  <section class="card" id="inputSection">
+    <h2><span class="num">1</span> Dane z CabMaker</h2>
+    <p class="hint">
+      <b>Ctrl+V</b> gdziekolwiek w tym polu = wklejenie i sparsowanie danych.
+      Albo użyj <b>Przeglądaj</b> / <b>Wklej ze schowka</b>. Separator wykrywany automatycznie.
+    </p>
+    <div class="paste-hint" id="pasteHint">📋 Kliknij tu i Ctrl+V</div>
+    <div class="paste-flash" id="pasteFlash"></div>
+    <div class="toolbar">
+      <input type="file" id="fileInput" accept=".csv,.txt" onchange="loadFile(event)">
+      <button class="ghost" onclick="pasteFromClipboard()">📋 Wklej ze schowka</button>
+      <button class="ghost" onclick="loadDemo()">📄 Wczytaj przykład</button>
+      <button class="ghost danger" onclick="clearInput()">🗑 Wyczyść</button>
+    </div>
+    <div class="tbl-wrap input-wrap">
+      <table id="inputTable"><thead></thead><tbody></tbody></table>
+    </div>
+    <div class="toolbar" style="margin-top:10px">
+      <button class="ghost" onclick="addInputRow()">+ Dodaj wiersz</button>
+      <button onclick="process()">⚙ Przetwórz →</button>
+      <span class="badge" id="inStats">Wierszy: 0</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="num">2</span> Materiały i mapowanie oklein <span style="color:var(--mut);font-size:.7rem;font-weight:400;text-transform:none;letter-spacing:0">— przeciągnij ⠿ aby zmienić kolejność</span></h2>
+    <p class="hint">
+      <b>Symbol</b> = nazwa materiału w wyniku (np. <code>PD3037-PU</code>).
+      <b>Słoje (grain)</b> → flaga <code>1</code>/<code>0</code> w wyniku.
+      Kolejność ustawiasz przeciągając <b>⠿</b> (priorytety przeliczają się same).
+      <b>Mapowanie oklein</b> – dla każdej litery z kolumny K osobny kod okleiny.<br>
+      Kliknięcie <b>✕</b> obok materiału usuwa go z eksportu. Można przywrócić przez <b>↺</b>.
+    </p>
+    <div class="tbl-wrap" style="max-height:none">
+      <table id="configTable">
+        <thead>
+          <tr>
+            <th style="width:28px"></th>
+            <th style="width:16%">Materiał (z kolumny I)</th>
+            <th style="width:20%">Symbol w wyniku</th>
+            <th style="width:8%">Słoje (grain)</th>
+            <th style="width:50%">Mapowanie oklein</th>
+            <th style="width:6%;text-align:center">Akcje</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="toolbar" style="margin-top:10px">
+      <button class="ghost" onclick="restoreAllMaterials()">↺ Przywróć wszystkie materiały</button>
+      <button class="ghost" onclick="clearMatCache()">🗑 Wyczyść cache materiałów</button>
+      <button class="ghost danger" onclick="clearEdgeCache()">🗑 Wyczyść mapowania oklein</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="num">3</span> Wynik — Part List <span style="color:var(--mut);font-size:.75rem;font-weight:400">(kliknij dowolną komórkę, aby edytować)</span></h2>
+    <div class="toolbar">
+      <button onclick="copyOutput()">📋 Kopiuj do schowka</button>
+      <button onclick="downloadCSV()">⬇ Pobierz CSV</button>
+      <button class="ghost" onclick="downloadCSV(true)">⬇ Pobierz .txt</button>
+      <button class="warn" onclick="resetEdits()">↺ Przywróć oryginał</button>
+      <span class="badge" id="outStats">Wierszy: 0</span>
+      <span class="badge" id="grainStats"></span>
+      <span class="badge" id="editStats">Zmienione: 0</span>
+    </div>
+    <div class="tbl-wrap">
+      <table id="outputTable"><thead></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* ============================================================
+   STAN
+   ============================================================ */
+let state = {
+  inputRows: [],
+  outputRows: [],
+  materials: [],
+  matCache: {},
+  edgeCache: {},
+  excludedMaterials: [],
+};
+
+const $ = s => document.querySelector(s);
+function esc(s){ return String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ============================================================
+   CACHE
+   ============================================================ */
+function saveMatCache(){ try{ localStorage.setItem('cabmaker_mat_cache_v9', JSON.stringify(state.matCache)); }catch(e){} }
+function loadMatCache(){ try{ const r=localStorage.getItem('cabmaker_mat_cache_v9'); if(r) state.matCache=JSON.parse(r); }catch(e){} }
+function saveEdgeCache(){ try{ localStorage.setItem('cabmaker_edge_cache_v9', JSON.stringify(state.edgeCache)); }catch(e){} }
+function loadEdgeCache(){ try{ const r=localStorage.getItem('cabmaker_edge_cache_v9'); if(r) state.edgeCache=JSON.parse(r); }catch(e){} }
+function saveExcluded(){ try{ localStorage.setItem('cabmaker_excluded_v1', JSON.stringify(state.excludedMaterials)); }catch(e){} }
+function loadExcluded(){ try{ const r=localStorage.getItem('cabmaker_excluded_v1'); if(r) state.excludedMaterials=JSON.parse(r); }catch(e){} }
+
+function clearMatCache(){
+  if (!confirm('Wyczyścić zapisane ustawienia materiałów (symbol/słoje/priorytet)?\n\nLista wykluczonych materiałów i mapowania oklein NIE zostaną wyczyszczone.')) return;
+  state.matCache = {}; saveMatCache();
+  if (state.inputRows.length) refreshMaterials();
+  renderConfig();
+  if (state.inputRows.length){ state.outputRows = transform(); renderOutput(); }
+}
+function clearEdgeCache(){
+  if (!confirm('Wyczyścić wszystkie zapisane mapowania oklein (dla wszystkich materiałów)?')) return;
+  state.edgeCache = {}; saveEdgeCache();
+  renderConfig();
+  if (state.inputRows.length){ state.outputRows = transform(); renderOutput(); }
+}
+
+/* ============================================================
+   PARSOWANIE CSV
+   ============================================================ */
+function parseCSVLine(line, sep){
+  const out = [];
+  let cur = '', inQuotes = false;
+  for (let i = 0; i < line.length; i++){
+    const ch = line[i];
+    if (inQuotes){
+      if (ch === '"'){ if (line[i+1] === '"'){ cur += '"'; i++; } else inQuotes = false; }
+      else cur += ch;
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === sep){ out.push(cur); cur = ''; }
+      else cur += ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
+function parseCSVText(text){
+  if (!text) return [];
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const lines = text.split(/\r?\n/);
+
+  let sep = ';';
+  for (const l of lines){
+    if (!l.trim()) continue;
+    const tabs = (l.match(/\t/g) || []).length;
+    const semis = (l.match(/;/g) || []).length;
+    const commas = (l.match(/,/g) || []).length;
+    if (tabs > semis && tabs > commas) sep = '\t';
+    else if (semis >= commas) sep = ';';
+    else sep = ',';
+    break;
+  }
+
+  let startIdx = 0;
+  if (lines[0]){
+    const firstCells = parseCSVLine(lines[0], sep);
+    if ((firstCells[0] || '').trim() === '#') startIdx = 1;
+  }
+
+  const rows = [];
+  for (let i = startIdx; i < lines.length; i++){
+    const line = lines[i];
+    if (!line.trim()) continue;
+    const cells = parseCSVLine(line, sep);
+    if (cells.length < 11) continue;
+    if (!(cells[4] || '').trim()) continue;
+    rows.push({ cells });
+  }
+  return rows;
+}
+
+/* ============================================================
+   RENDER — TABELA WEJŚCIA
+   ============================================================ */
+const INPUT_COLS = [
+  { i:0,  h:'#',             w:50  },
+  { i:1,  h:'Quantity',      w:70  },
+  { i:2,  h:'Cabinet',       w:100 },
+  { i:3,  h:'Assembly',      w:100 },
+  { i:4,  h:'Item',          w:140 },
+  { i:5,  h:'Height',        w:80  },
+  { i:6,  h:'Width',         w:80  },
+  { i:7,  h:'Thickness',     w:80  },
+  { i:8,  h:'Material',      w:140 },
+  { i:9,  h:'Material Type', w:100 },
+  { i:10, h:'Edging',        w:100 },
+];
+
+function renderInput(){
+  const head = $('#inputTable thead');
+  const body = $('#inputTable tbody');
+  head.innerHTML = '<tr>' + INPUT_COLS.map(c =>
+    `<th style="min-width:${c.w}px">${esc(c.h)}</th>`).join('') +
+    '<th style="width:36px"></th></tr>';
+
+  if (!state.inputRows.length){
+    body.innerHTML = `<tr><td colspan="${INPUT_COLS.length+1}" class="empty-state">
+      Brak danych. Kliknij w tę tabelę i wklej (Ctrl+V) dane z CabMaker,
+      użyj <b>Przeglądaj</b>, <b>Wklej ze schowka</b> lub <b>Wczytaj przykład</b>.</td></tr>`;
+    $('#inStats').textContent = 'Wierszy: 0';
+    $('#pasteHint').classList.remove('hidden');
+    return;
+  }
+  $('#pasteHint').classList.add('hidden');
+
+  body.innerHTML = state.inputRows.map((row, i) => {
+    const cells = row.cells;
+    const tds = INPUT_COLS.map(c => {
+      const v = cells[c.i] ?? '';
+      const cls = c.i === 5 || c.i === 6 || c.i === 7 || c.i === 1 ? 'num ' :
+                  c.i === 10 ? 'edg ' : '';
+      return `<td><input class="in-cell ${cls}" type="text" value="${esc(v)}"
+                        data-i="${i}" data-c="${c.i}"></td>`;
+    }).join('');
+    return `<tr>
+      ${tds}
+      <td><button class="del-row" onclick="delInputRow(${i})">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  body.querySelectorAll('input.in-cell').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const i = +e.target.dataset.i, c = +e.target.dataset.c;
+      if (!state.inputRows[i]) return;
+      state.inputRows[i].cells[c] = e.target.value;
+    });
+  });
+  $('#inStats').textContent = 'Wierszy: ' + state.inputRows.length;
+}
+
+/* ============================================================
+   AKCJE WEJŚCIA / PASTE
+   ============================================================ */
+function setInputRows(rows){
+  state.inputRows = rows;
+  state.outputRows = [];
+  state.materials = [];
+  renderInput(); renderConfig(); renderOutput();
+}
+function addInputRow(){
+  const empty = { cells: Array(11).fill('') };
+  const maxNum = state.inputRows.reduce((m, r) => {
+    const n = parseInt(r.cells[0], 10); return isNaN(n) ? m : Math.max(m, n);
+  }, 0);
+  empty.cells[0] = String(maxNum + 1);
+  state.inputRows.push(empty);
+  renderInput();
+}
+function delInputRow(i){ state.inputRows.splice(i, 1); renderInput(); }
+function clearInput(){
+  if (state.inputRows.length && !confirm('Usunąć wszystkie wiersze?')) return;
+  setInputRows([]);
+}
+
+function flashPaste(){
+  const f = $('#pasteFlash');
+  f.classList.add('on');
+  setTimeout(() => f.classList.remove('on'), 220);
+}
+
+function handlePastedText(text){
+  if (!text || !text.trim()){ alert('Schowek jest pusty.'); return; }
+  const rows = parseCSVText(text);
+  if (!rows.length){ alert('Nie rozpoznano wierszy.\nUpewnij się, że dane mają min. 11 kolumn i wypełnioną kolumnę Item (5).'); return; }
+  if (state.inputRows.length){
+    if (!confirm(`Zastąpić obecne ${state.inputRows.length} wierszy nowymi (${rows.length})?`)) return;
+  }
+  setInputRows(rows);
+  flashPaste();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const sec = $('#inputSection');
+  sec.addEventListener('paste', e => {
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' && e.clipboardData){
+      const text = e.clipboardData.getData('text');
+      if (!/[\n\t;]/.test(text)) return;
+    }
+    const text = e.clipboardData?.getData('text') || '';
+    if (!text.trim()) return;
+    e.preventDefault();
+    handlePastedText(text);
+  });
+});
+
+async function pasteFromClipboard(){
+  try {
+    const text = await navigator.clipboard.readText();
+    handlePastedText(text);
+  } catch(e){
+    const text = prompt('Schowek niedostępny — wklej tutaj (Ctrl+V):');
+    if (text) handlePastedText(text);
+  }
+}
+
+function loadFile(e){
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const rows = parseCSVText(ev.target.result);
+    setInputRows(rows);
+    process();
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+/* ============================================================
+   MATERIAŁY
+   ============================================================ */
+function refreshMaterials(){
+  const seen = new Set();
+  const list = [];
+  state.inputRows.forEach(r => {
+    const mat = (r.cells[8] || '').trim();
+    if (!mat || seen.has(mat)) return;
+    seen.add(mat);
+    const c = state.matCache[mat];
+    list.push({
+      material: mat,
+      symbol:   c?.symbol   ?? mat,
+      grain:    c?.grain    ?? false,
+      priority: c?.priority ?? list.length,
+    });
+  });
+  state.materials = list;
+}
+
+function getMaterialEdges(material){
+  const inFile = new Set();
+  state.inputRows.forEach(r => {
+    const mat = (r.cells[8] || '').trim();
+    if (mat !== material) return;
+    (r.cells[10] || '').split('-').forEach(p => {
+      const c = p.trim();
+      if (c && c !== '-') inFile.add(c);
+    });
+  });
+
+  const cache = state.edgeCache[material] || {};
+  const letters = new Set();
+  inFile.forEach(l => letters.add(l));
+  Object.keys(cache).forEach(l => {
+    if (cache[l] === null) return;
+    letters.add(l);
+  });
+
+  return [...letters].sort().map(letter => ({
+    letter,
+    code:   cache[letter] ?? '',
+    inFile: inFile.has(letter),
+  }));
+}
+
+function renderConfig(){
+  state.materials.sort((a, b) => a.priority - b.priority);
+
+  const tbody = $('#configTable tbody');
+  if (!state.materials.length){
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">
+      Brak materiałów. Wklej dane i kliknij <b>Przetwórz</b>.</td></tr>`;
+    return;
+  }
+  const excludedSet = new Set(state.excludedMaterials);
+
+  tbody.innerHTML = state.materials.map((m, i) => {
+    const excluded = excludedSet.has(m.material);
+    const edges = getMaterialEdges(m.material);
+
+    const edgesHtml = edges.length
+      ? edges.map(e => `
+          <span class="edge-chip">
+            <span class="letter-badge">${esc(e.letter)}</span>
+            <span class="arrow">→</span>
+            <input type="text" class="edge-code-input" value="${esc(e.code)}"
+                   placeholder="kod..." data-mi="${i}" data-l="${esc(e.letter)}"
+                   title="${e.inFile ? 'Litera występuje w pliku' : 'Litera z cache'}">
+            <button class="x" data-mi="${i}" data-l="${esc(e.letter)}" title="Usuń mapowanie">✕</button>
+          </span>`).join('')
+      : '<span class="no-edges">brak liter do zmapowania</span>';
+
+    return `<tr class="${excluded ? 'mat-excluded' : ''}" data-mi="${i}">
+      <td class="grip-cell">
+        <span class="grip" draggable="true" data-mi="${i}" title="Przeciągnij, aby zmienić kolejność">⠿</span>
+      </td>
+      <td>
+        <span class="mat-code">${esc(m.material)}</span>
+        ${excluded ? '<span class="badge-excluded">wykluczony</span>' : ''}
+      </td>
+      <td><input type="text" value="${esc(m.symbol)}" oninput="updMat(${i},'symbol',this.value)"></td>
+      <td class="center"><input type="checkbox" ${m.grain ? 'checked' : ''}
+                 onchange="updMat(${i},'grain',this.checked)"></td>
+      <td><div class="edges-cell">
+        ${edgesHtml}
+        <button class="add-edge-btn" data-mi="${i}">+ dodaj</button>
+      </div></td>
+      <td style="text-align:center">
+        ${excluded
+          ? `<button class="small ghost" data-action="restore" data-mi="${i}" title="Przywróć do eksportu">↺</button>`
+          : `<button class="small danger" data-action="del" data-mi="${i}" title="Usuń z eksportu">✕</button>`}
+      </td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('.edge-code-input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const mi = +e.target.dataset.mi;
+      const letter = e.target.dataset.l;
+      const mat = state.materials[mi]?.material;
+      if (!mat) return;
+      setEdgeCode(mat, letter, e.target.value);
+    });
+  });
+  tbody.querySelectorAll('.edge-chip .x').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const mi = +e.currentTarget.dataset.mi;
+      const letter = e.currentTarget.dataset.l;
+      const mat = state.materials[mi]?.material;
+      if (!mat) return;
+      delEdgeForMaterial(mat, letter);
+    });
+  });
+  tbody.querySelectorAll('.add-edge-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const mi = +e.currentTarget.dataset.mi;
+      const mat = state.materials[mi]?.material;
+      if (!mat) return;
+      addEdgeForMaterial(mat);
+    });
+  });
+  tbody.querySelectorAll('button[data-action]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const mi = +e.currentTarget.dataset.mi;
+      const action = e.currentTarget.dataset.action;
+      if (action === 'del') delMat(mi);
+      else if (action === 'restore') restoreMaterial(mi);
+    });
+  });
+
+  attachMaterialDragDrop(tbody);
+}
+
+/* ============================================================
+   DRAG & DROP MATERIAŁÓW
+   ============================================================ */
+function reorderMaterials(fromIdx, toIdx){
+  if (fromIdx === toIdx) return;
+  const [item] = state.materials.splice(fromIdx, 1);
+  state.materials.splice(toIdx, 0, item);
+  state.materials.forEach((m, i) => {
+    m.priority = i;
+    state.matCache[m.material] = {
+      symbol: m.symbol, grain: m.grain, priority: i,
+    };
+  });
+  saveMatCache();
+  renderConfig();
+  if (state.inputRows.length){
+    state.outputRows = transform();
+    renderOutput();
+  }
+}
+
+function attachMaterialDragDrop(tbody){
+  let srcIdx = null;
+
+  tbody.querySelectorAll('.grip').forEach(grip => {
+    grip.addEventListener('dragstart', e => {
+      srcIdx = +grip.dataset.mi;
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', String(srcIdx)); } catch(_) {}
+      grip.closest('tr').classList.add('dragging');
+    });
+    grip.addEventListener('dragend', () => {
+      grip.closest('tr')?.classList.remove('dragging');
+      tbody.querySelectorAll('tr').forEach(r =>
+        r.classList.remove('drag-over-top','drag-over-bottom'));
+      srcIdx = null;
+    });
+  });
+
+  tbody.querySelectorAll('tr[data-mi]').forEach(tr => {
+    tr.addEventListener('dragover', e => {
+      if (srcIdx === null) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const rect = tr.getBoundingClientRect();
+      const above = e.clientY < rect.top + rect.height / 2;
+      tbody.querySelectorAll('tr').forEach(r =>
+        r.classList.remove('drag-over-top','drag-over-bottom'));
+      tr.classList.add(above ? 'drag-over-top' : 'drag-over-bottom');
+    });
+    tr.addEventListener('dragleave', () => {
+      tr.classList.remove('drag-over-top','drag-over-bottom');
+    });
+    tr.addEventListener('drop', e => {
+      e.preventDefault();
+      if (srcIdx === null) return;
+      const targetIdx = +tr.dataset.mi;
+      const rect = tr.getBoundingClientRect();
+      const above = e.clientY < rect.top + rect.height / 2;
+      let newIdx = above ? targetIdx : targetIdx + 1;
+      if (srcIdx < newIdx) newIdx--;
+      tbody.querySelectorAll('tr').forEach(r =>
+        r.classList.remove('drag-over-top','drag-over-bottom'));
+      reorderMaterials(srcIdx, newIdx);
+      srcIdx = null;
+    });
+  });
+}
+
+/* ============================================================
+   EDYCJA MATERIAŁÓW
+   ============================================================ */
+function updMat(i, k, v){
+  if (!state.materials[i]) return;
+  state.materials[i][k] = v;
+  state.matCache[state.materials[i].material] = {
+    symbol: state.materials[i].symbol,
+    grain: state.materials[i].grain,
+    priority: state.materials[i].priority,
+  };
+  saveMatCache();
+  if (state.inputRows.length){
+    state.outputRows = transform();
+    renderOutput();
+  }
+}
+
+function delMat(i){
+  const mat = state.materials[i]?.material;
+  if (!mat) return;
+  if (!confirm(`Usunąć materiał "${mat}" z eksportu?\n\nWiersze z tym materiałem znikną z tabeli wynikowej.\nMożesz go później przywrócić przyciskiem ↺.`)) return;
+
+  if (!state.excludedMaterials.includes(mat)){
+    state.excludedMaterials.push(mat);
+    saveExcluded();
+  }
+  renderConfig();
+  if (state.inputRows.length){
+    state.outputRows = transform();
+    renderOutput();
+  }
+}
+function restoreMaterial(i){
+  const mat = state.materials[i]?.material;
+  if (!mat) return;
+  state.excludedMaterials = state.excludedMaterials.filter(m => m !== mat);
+  saveExcluded();
+  renderConfig();
+  if (state.inputRows.length){
+    state.outputRows = transform();
+    renderOutput();
+  }
+}
+function restoreAllMaterials(){
+  if (!state.excludedMaterials.length){
+    alert('Brak wykluczonych materiałów.');
+    return;
+  }
+  if (!confirm(`Przywrócić wszystkie usunięte materiały (${state.excludedMaterials.length})?`)) return;
+  state.excludedMaterials = []; saveExcluded();
+  renderConfig();
+  if (state.inputRows.length){
+    state.outputRows = transform();
+    renderOutput();
+  }
+}
+
+/* ============================================================
+   EDGE – edycja / dodawanie / usuwanie kodu
+   ============================================================ */
+function setEdgeCode(material, letter, code){
+  if (!state.edgeCache[material]) state.edgeCache[material] = {};
+  state.edgeCache[material][letter] = code;
+  saveEdgeCache();
+  if (state.inputRows.length){
+    state.outputRows = transform();
+    renderOutput();
+  }
+}
+
+function delEdgeForMaterial(material, letter){
+  if (!confirm(`Usunąć mapowanie "${letter}" dla materiału "${material}"?`)) return;
+  if (!state.edgeCache[material]) state.edgeCache[material] = {};
+  state.edgeCache[material][letter] = null;
+  saveEdgeCache();
+  renderConfig();
+  if (state.inputRows.length){
+    state.outputRows = transform();
+    renderOutput();
+  }
+}
+
+function addEdgeForMaterial(material){
+  const letter = prompt(`Dodaj literę do materiału "${material}":\n(np. D, I, B, A)`);
+  if (!letter) return;
+  const t = letter.trim();
+  if (!t) return;
+
+  if (!state.edgeCache[material]) state.edgeCache[material] = {};
+  const cur = state.edgeCache[material][t];
+  if (cur !== undefined && cur !== null){
+    alert(`Litera "${t}" już istnieje dla materiału "${material}".`);
+    return;
+  }
+
+  const code = prompt(`Kod okleiny dla "${material}" + "${t}":\n(np. k003-1x22)\nPozostaw puste, aby zachować samą literę.`) ?? '';
+  state.edgeCache[material][t] = code.trim();
+  saveEdgeCache();
+  renderConfig();
+  if (state.inputRows.length){
+    state.outputRows = transform();
+    renderOutput();
+  }
+}
+
+/* ============================================================
+   OKLEINA → 4 KOLUMNY (per materiał)
+   ============================================================ */
+function edgingToColumns(edging, material){
+  if (!edging) return ['0','0','0','0'];
+  const map = state.edgeCache[material] || {};
+  const parts = edging.split('-');
+  const out = [];
+  for (let i = 0; i < 4; i++){
+    const p = (parts[i] || '').trim();
+    if (p === '') out.push('0');
+    else {
+      const code = map[p];
+      if (code === null || code === undefined) out.push(p);
+      else out.push(code || p);
+    }
+  }
+  return out;
+}
+
+/* ============================================================
+   TRANSFORMACJA
+   ============================================================ */
+function transform(){
+  const matMap = {};
+  state.materials.forEach(m => { if (m.material) matMap[m.material] = m; });
+  const excluded = new Set(state.excludedMaterials);
+
+  const out = [];
+  state.inputRows.forEach(r => {
+    const cells = r.cells;
+    const mat = (cells[8] || '').trim();
+    if (excluded.has(mat)) return;
+
+    const qty  = (cells[1] || '').trim();
+    const cab  = (cells[2] || '').trim();
+    const item = (cells[4] || '').trim();
+    const h    = (cells[5] || '').trim();
+    const w    = (cells[6] || '').trim();
+    const edg  = (cells[10] || '').trim();
+
+    const mm = matMap[mat];
+    const symbol = mm ? mm.symbol : mat;
+    const priority = mm ? mm.priority : 99;
+    const grainFlag = mm ? (mm.grain ? 1 : 0) : 0;
+
+    const [e1, e2, e3, e4] = edgingToColumns(edg, mat);
+    const nazwa = (cab || '') + '.' + (item || '');
+
+    out.push({
+      symbol, height: h, width: w, qty,
+      nazwa,
+      edge1: e1, edge2: e2, edge3: e3, edge4: e4,
+      flag: grainFlag,
+      x2: 0,
+      _priority: priority, _cabinet: cab, _item: item, _order: 0,
+      _edited: {},
+    });
+  });
+
+  out.forEach((r, i) => r._order = i);
+  out.sort((a, b) => {
+    if (a._priority !== b._priority) return a._priority - b._priority;
+    const ac = a._cabinet.toLowerCase(), bc = b._cabinet.toLowerCase();
+    if (!ac && bc) return 1;
+    if (ac && !bc) return -1;
+    if (ac !== bc) return ac < bc ? -1 : 1;
+    const ai = a._item.toLowerCase(), bi = b._item.toLowerCase();
+    if (ai !== bi) return ai < bi ? -1 : 1;
+    return a._order - b._order;
+  });
+  return out;
+}
+
+/* ============================================================
+   RENDER — WYNIK
+   ============================================================ */
+const OUT_COLS = [
+  { k:'symbol', h:'Symbol',    cls:'',        widthCls:'' },
+  { k:'height', h:'DŁ',        cls:'num',     widthCls:'col-narrow' },
+  { k:'width',  h:'SZER',      cls:'num',     widthCls:'col-narrow' },
+  { k:'qty',    h:'ILOŚĆ',     cls:'num',     widthCls:'col-tiny' },
+  { k:'nazwa',  h:'NAZWA',     cls:'',        widthCls:'' },
+  { k:'edge1',  h:'Okleina 1', cls:'edge',    widthCls:'col-edge' },
+  { k:'edge2',  h:'Okleina 2', cls:'edge',    widthCls:'col-edge' },
+  { k:'edge3',  h:'Okleina 3', cls:'edge',    widthCls:'col-edge' },
+  { k:'edge4',  h:'Okleina 4', cls:'edge',    widthCls:'col-edge' },
+  { k:'flag',   h:'Słoje',     cls:'flag',    widthCls:'col-tiny' },
+  { k:'x2',     h:'X2',        cls:'flag',    widthCls:'col-tiny' },
+];
+
+function renderOutput(){
+  const head = $('#outputTable thead');
+  const body = $('#outputTable tbody');
+  head.innerHTML = '<tr><th style="width:36px">#</th>' +
+    OUT_COLS.map(c => `<th class="${c.widthCls}">${esc(c.h)}</th>`).join('') + '</tr>';
+
+  if (!state.outputRows.length){
+    body.innerHTML = `<tr><td colspan="${OUT_COLS.length+1}" class="empty-state">
+      ${state.excludedMaterials.length && !state.materials.length
+        ? 'Wszystkie materiały są wykluczone z eksportu.'
+        : 'Wklej dane i kliknij <b>Przetwórz</b>.'}</td></tr>`;
+    $('#outStats').textContent = 'Wierszy: 0';
+    $('#grainStats').textContent = '';
+    $('#editStats').textContent = 'Zmienione: 0';
+    return;
+  }
+
+  let withGrain = 0, withoutGrain = 0, editedCount = 0;
+
+  body.innerHTML = state.outputRows.map((r, i) => {
+    const edited = r._edited || {};
+    const rowEdited = Object.keys(edited).length > 0;
+    if (rowEdited) editedCount += Object.keys(edited).length;
+
+    const tds = OUT_COLS.map(c => {
+      const v = r[c.k];
+      const isEdited = !!edited[c.k];
+      const editCls = isEdited ? 'edited' : '';
+      const wcls = c.widthCls;
+
+      if (c.k === 'flag' || c.k === 'x2'){
+        if (c.k === 'flag'){
+          if (v === 1) withGrain++; else withoutGrain++;
+        }
+        const val = (v === 1 || v === '1') ? 1 : 0;
+        return `<td class="${isEdited?'edited-cell':''} ${wcls}">
+          <select class="cell-select ${val ? 'g1' : 'g0'} ${editCls}" data-i="${i}" data-k="${c.k}">
+            <option value="0" ${val==0?'selected':''}>0</option>
+            <option value="1" ${val==1?'selected':''}>1</option>
+          </select></td>`;
+      }
+      if (c.cls === 'edge'){
+        const cls = 'cell-input edge ' + (v === '0' || v === '' ? 'zero ' : '') + editCls;
+        return `<td class="${isEdited?'edited-cell':''} ${wcls}">
+          <input class="${cls}" type="text" value="${esc(v)}"
+                 data-i="${i}" data-k="${c.k}" maxlength="40"></td>`;
+      }
+      if (c.cls === 'num'){
+        return `<td class="${isEdited?'edited-cell':''} ${wcls}">
+          <input class="cell-input num ${editCls}" type="text" value="${esc(v)}"
+                 data-i="${i}" data-k="${c.k}"></td>`;
+      }
+      return `<td class="${isEdited?'edited-cell':''} ${wcls}">
+        <input class="cell-input ${editCls}" type="text" value="${esc(v)}"
+               data-i="${i}" data-k="${c.k}"></td>`;
+    }).join('');
+
+    const marker = rowEdited ? '<span class="mark-edited" title="Wiersz edytowany">✎</span>' : '';
+    return `<tr>
+      <td style="color:var(--mut);font-size:.7rem;text-align:center">${i+1} ${marker}</td>
+      ${tds}
+    </tr>`;
+  }).join('');
+
+  $('#outStats').textContent = 'Wierszy: ' + state.outputRows.length;
+  $('#grainStats').textContent = `Ze słojami: ${withGrain} · Bez słojów: ${withoutGrain}`;
+  $('#editStats').textContent = `Zmienione: ${editedCount}`;
+  $('#editStats').className = 'badge' + (editedCount ? ' warn' : '');
+
+  body.querySelectorAll('input.cell-input, select.cell-select').forEach(el => {
+    el.addEventListener('input', handleCellEdit);
+    el.addEventListener('change', handleCellEdit);
+  });
+}
+
+function handleCellEdit(e){
+  const el = e.target;
+  const i = +el.dataset.i, k = el.dataset.k;
+  const row = state.outputRows[i];
+  if (!row) return;
+  let newVal = el.value;
+  if (k === 'flag' || k === 'x2') newVal = parseInt(newVal, 10) || 0;
+  if (row[k] === newVal) return;
+
+  row[k] = newVal;
+  if (!row._edited) row._edited = {};
+  row._edited[k] = true;
+
+  el.classList.add('edited');
+  el.closest('td').classList.add('edited-cell');
+  if (k === 'flag' || k === 'x2'){
+    el.classList.remove('g0','g1');
+    el.classList.add(newVal ? 'g1' : 'g0');
+  }
+  if (k.startsWith('edge')) el.classList.toggle('zero', newVal === '0' || newVal === '');
+  const markerCell = el.closest('tr').querySelector('td:first-child');
+  if (!markerCell.querySelector('.mark-edited')){
+    markerCell.innerHTML = markerCell.innerHTML.trim() + ' <span class="mark-edited" title="Wiersz edytowany">✎</span>';
+  }
+  updateEditCount(); updateGrainStats();
+}
+function updateEditCount(){
+  let n = 0;
+  state.outputRows.forEach(r => { if (r._edited) n += Object.keys(r._edited).length; });
+  $('#editStats').textContent = `Zmienione: ${n}`;
+  $('#editStats').className = 'badge' + (n ? ' warn' : '');
+}
+function updateGrainStats(){
+  let w = 0, wo = 0;
+  state.outputRows.forEach(r => { if (r.flag === 1) w++; else wo++; });
+  $('#grainStats').textContent = `Ze słojami: ${w} · Bez słojów: ${wo}`;
+}
+function hasEdits(){
+  return state.outputRows.some(r => r._edited && Object.keys(r._edited).length > 0);
+}
+function resetEdits(){
+  if (!hasEdits()){ alert('Brak ręcznych zmian do przywrócenia.'); return; }
+  if (!confirm('Przywrócić oryginalne wartości (usunąć wszystkie ręczne zmiany)?')) return;
+  state.outputRows = transform(); renderOutput();
+}
+
+/* ============================================================
+   PRZETWARZANIE
+   ============================================================ */
+function process(){
+  if (!state.inputRows.length){ alert('Najpierw wklej dane z CabMaker.'); return; }
+  if (hasEdits()){
+    if (!confirm('Masz ręczne zmiany w tabeli wynikowej. Przetworzenie ich usunie. Kontynuować?')) return;
+  }
+  try {
+    refreshMaterials();
+    state.outputRows = transform();
+    renderConfig(); renderOutput();
+  } catch(e){
+    console.error(e);
+    alert('Błąd: ' + e.message);
+  }
+}
+
+/* ============================================================
+   EKSPORT
+   ============================================================ */
+function buildCSV(){
+  return state.outputRows.map(r => OUT_COLS.map(c => {
+    const v = r[c.k] ?? '';
+    const s = String(v).replace(/"/g, '""');
+    return /[;"\n]/.test(s) ? `"${s}"` : s;
+  }).join(';')).join('\n');
+}
+function copyOutput(){
+  if (!state.outputRows.length){ alert('Brak danych.'); return; }
+  navigator.clipboard.writeText(buildCSV())
+    .then(() => alert('Skopiowano ' + state.outputRows.length + ' wierszy.'))
+    .catch(() => alert('Nie udało się skopiować.'));
+}
+function downloadCSV(asTxt){
+  if (!state.outputRows.length){ alert('Brak danych.'); return; }
+  const csv = buildCSV();
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = asTxt ? 'part_list.txt' : 'part_list.csv';
+  a.click();
+}
+
+/* ============================================================
+   DEMO
+   ============================================================ */
+const DEMO_INPUT =
+`#;Quantity;Cabinet;Assembly;Item;Height;Width;Thickness;Material;Material Type;Edging
+1;1;;Cabinet;Back;1995;494;1;HDF-K110-BIAŁY;Sheet Good;---
+2;1;;Cabinet;Bottom 1;500;580;18;DRE;Sheet Good;D---
+3;1;;Cabinet;Left Side;1964;580;18;DRE;Sheet Good;D---
+4;1;;Cabinet;Right Side;1964;580;18;DRE;Sheet Good;D---
+5;6;;Cabinet;Shelf;464;569;18;DRE;Sheet Good;D---
+6;1;;Cabinet;Top 1;500;580;18;DRE;Sheet Good;D---
+10;1;;Drawer Box;Pullout Front;453;190;18;DRE;Sheet Good;D-D-D-D
+13;1;KG.cok1;Cabinet;Right Side;1500;90;18;DRE;Sheet Good;D-D--
+16;1;;KG.S1n;Cabinet;Back;585;494;1;HDF-K110-BIAŁY;Sheet Good;---
+23;1;KG.S2;Cabinet;Bottom 1;1000;580;18;KOL1;Sheet Good;D---
+28;3;KG.S2;Drawer Box;Pullout Bottom;539;915;18;KOL1;Sheet Good;---
+47;1;KG.S3;Cabinet;Bottom 1;1000;580;18;DRE2;Sheet Good;D---
+82;1;KG.S5;Cabinet;Bottom 1;750;350;18;KOL2;Sheet Good;D---`;
+
+function loadDemo(){ handlePastedText(DEMO_INPUT); }
+
+/* ============================================================
+   START
+   ============================================================ */
+loadMatCache();
+loadEdgeCache();
+loadExcluded();
+renderInput();
+renderConfig();
+renderOutput();
+</script>
+</body>
+</html>

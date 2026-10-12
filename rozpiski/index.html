@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Part List — ręczne wprowadzanie</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --card:#0b1220; --line:#334155;
+    --acc:#38bdf8; --txt:#e2e8f0; --mut:#94a3b8;
+    --edited:#fbbf24; --edge:#7dd3fc;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;
+       background:var(--bg);color:var(--txt);font-size:14px}
+  header{padding:18px 24px;background:var(--panel);border-bottom:1px solid var(--line)}
+  header h1{margin:0 0 4px;font-size:1.15rem;color:var(--acc)}
+  header p{margin:0;color:var(--mut);font-size:.85rem}
+  main{padding:18px;max-width:1700px;margin:0 auto;display:flex;
+       flex-direction:column;gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+        padding:16px;position:relative}
+  .card h2{margin:0 0 10px;font-size:1rem;color:var(--acc);
+           display:flex;align-items:center;gap:8px}
+  .card h2 .num{background:var(--acc);color:#04283a;border-radius:50%;
+                width:22px;height:22px;display:inline-flex;align-items:center;
+                justify-content:center;font-size:.75rem;font-weight:700}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+  button{background:var(--acc);color:#04283a;border:0;padding:8px 14px;
+         border-radius:8px;cursor:pointer;font-weight:600;font-size:.85rem;
+         font-family:inherit}
+  button:hover{filter:brightness(1.1)}
+  button.ghost{background:var(--line);color:var(--txt)}
+  button.warn{background:#b45309;color:#fff}
+  button.danger{background:#dc2626;color:#fff}
+  button.small{padding:4px 8px;font-size:.75rem}
+  input[type=text],input[type=number],select{
+    background:var(--card);color:var(--txt);border:1px solid var(--line);
+    border-radius:6px;padding:6px 8px;font-family:inherit;font-size:.82rem;
+    outline:none;width:100%}
+  input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--acc)}
+  input[type=checkbox]{width:20px;height:20px;cursor:pointer;accent-color:#22c55e}
+  table{border-collapse:collapse;width:100%;font-size:.8rem}
+  th,td{padding:4px 5px;border-bottom:1px solid var(--line);
+        text-align:left;vertical-align:middle}
+  th{background:#132033;color:var(--acc);font-weight:600;font-size:.7rem;
+     text-transform:uppercase;letter-spacing:.4px;position:sticky;top:0;z-index:2}
+  .tbl-wrap{max-height:520px;overflow:auto;border:1px solid var(--line);
+            border-radius:8px;background:var(--card)}
+  tr:nth-child(even) td{background:#0e1728}
+  tr:hover td{background:#16233b}
+
+  .in-cell{
+    background:transparent;border:1px solid transparent;color:inherit;
+    font:inherit;padding:4px 6px;width:100%;border-radius:4px;
+    outline:none;min-width:40px;
+  }
+  .in-cell:hover{border-color:#334155;background:#0b1220}
+  .in-cell:focus{border-color:var(--acc);background:#0b1220;color:#fff}
+  .in-cell.num{text-align:right;font-variant-numeric:tabular-nums}
+  .in-cell.mat{font-family:ui-monospace,Consolas,monospace;color:var(--edge);font-weight:600}
+  .in-cell.edge-input{
+    font-family:ui-monospace,Consolas,monospace;
+    text-align:center;letter-spacing:2px;text-transform:uppercase;
+    color:#fde68a;font-weight:700;
+  }
+
+  .del-row{background:transparent;border:0;color:#ef4444;cursor:pointer;
+           font-weight:700;padding:2px 6px;font-size:.9rem}
+  .del-row:hover{color:#fca5a5}
+  .empty-state{color:#475569;text-align:center;padding:22px}
+  .badge{display:inline-block;background:#132033;border:1px solid var(--line);
+         border-radius:6px;padding:3px 9px;font-size:.72rem;color:var(--mut)}
+  .badge.warn{color:var(--edited);border-color:#92400e}
+  .badge.good{color:#4ade80;border-color:#166534}
+  .hint{color:var(--mut);font-size:.78rem;margin:4px 0 8px;line-height:1.6}
+  .hint code{background:#132033;padding:1px 6px;border-radius:4px;
+             color:#fde68a;font-size:.75rem;font-family:ui-monospace,Consolas,monospace}
+
+  .mat-code{font-family:ui-monospace,Consolas,monospace;color:var(--edge);font-weight:600}
+  tr.mat-excluded td{opacity:.55}
+  tr.mat-excluded td:nth-child(2) .mat-code{text-decoration:line-through}
+  tr.mat-excluded:hover td{opacity:.8}
+  .badge-excluded{
+    display:inline-block;background:rgba(220,38,38,.2);
+    border:1px solid rgba(220,38,38,.5);color:#fca5a5;font-size:.62rem;
+    padding:1px 6px;border-radius:4px;margin-left:6px;font-weight:600;
+    text-transform:uppercase;letter-spacing:.4px;vertical-align:middle;
+  }
+
+  .edges-cell{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .edge-chip{display:inline-flex;align-items:center;gap:4px;
+    background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.25);
+    padding:2px 4px 2px 7px;border-radius:7px}
+  .edge-chip .letter-badge{
+    display:inline-block;background:#132033;border:1px solid var(--line);
+    color:var(--edge);font-family:ui-monospace,Consolas,monospace;
+    font-weight:700;font-size:.75rem;padding:1px 7px;border-radius:5px;
+    min-width:22px;text-align:center}
+  .edge-chip input{
+    width:110px;padding:3px 6px;font-size:.73rem;background:#0b1220;
+    border:1px solid #334155;border-radius:4px;color:#fde68a;
+    font-family:ui-monospace,Consolas,monospace;outline:none}
+  .edge-chip input:focus{border-color:var(--acc);color:#fff}
+  .edge-chip input::placeholder{color:#475569;font-style:italic}
+  .edge-chip .x{
+    background:transparent;border:0;color:#ef4444;cursor:pointer;
+    padding:2px 5px;font-size:.8rem;font-weight:700;border-radius:4px;line-height:1}
+  .edge-chip .x:hover{background:rgba(239,68,68,.15);color:#fca5a5}
+  .add-edge-btn{
+    background:transparent;border:1px dashed #334155;color:var(--mut);
+    padding:4px 10px;border-radius:6px;font-size:.72rem;cursor:pointer;
+    font-weight:600;font-family:inherit}
+  .add-edge-btn:hover{border-color:var(--acc);color:var(--acc)}
+  .no-edges{color:#475569;font-size:.72rem;font-style:italic}
+
+  .grip-cell{width:28px;text-align:center}
+  .grip{display:inline-block;cursor:grab;color:#64748b;
+    font-size:15px;font-weight:700;line-height:1;letter-spacing:-2px;
+    padding:3px 4px;user-select:none;border-radius:4px;
+    transition:color .15s, background .15s}
+  .grip:hover{color:var(--acc);background:rgba(56,189,248,.10)}
+  .grip:active{cursor:grabbing}
+  tr.dragging{opacity:.35}
+  tr.drag-over-top{box-shadow:inset 0 3px 0 var(--acc)}
+  tr.drag-over-bottom{box-shadow:inset 0 -3px 0 var(--acc)}
+
+  #outputTable th.col-narrow,#outputTable td.col-narrow{width:70px;max-width:70px}
+  #outputTable th.col-tiny,#outputTable td.col-tiny{width:58px;max-width:58px}
+  #outputTable th.col-edge,#outputTable td.col-edge{width:90px;max-width:90px}
+
+  .cell-input{background:transparent;border:1px solid transparent;color:inherit;
+    font:inherit;padding:3px 5px;width:100%;border-radius:4px;
+    font-family:inherit;outline:none;min-width:40px}
+  .cell-input:hover{border-color:#334155;background:#0b1220}
+  .cell-input:focus{border-color:var(--acc);background:#0b1220;color:#fff}
+  .cell-input.edited{border-color:var(--edited);
+    background:rgba(251,191,36,.10);color:#fde68a;font-weight:600}
+  .cell-input.edge{font-family:ui-monospace,Consolas,monospace;
+    text-align:center;font-weight:600;color:#fde68a}
+  .cell-input.edge.zero{color:#475569;font-weight:400}
+  .cell-input.num{text-align:right;font-variant-numeric:tabular-nums}
+  td.edited-cell{background:rgba(251,191,36,.04)!important}
+  .mark-edited{color:var(--edited);font-weight:700;font-size:.75rem}
+  .cell-select{background:transparent;border:1px solid transparent;font:inherit;
+    font-weight:700;padding:3px 4px;cursor:pointer;text-align:center;
+    width:100%;border-radius:4px;outline:none}
+  .cell-select.g1{color:#4ade80}
+  .cell-select.g0{color:#64748b}
+  .cell-select.edited{border-color:var(--edited);background:rgba(251,191,36,.10)}
+
+  .paste-hint{position:absolute;top:56px;right:20px;
+    background:rgba(56,189,248,.12);border:1px dashed var(--acc);
+    color:var(--acc);padding:6px 12px;border-radius:8px;
+    font-size:.75rem;pointer-events:none;transition:opacity .3s}
+  .paste-hint.hidden{opacity:0}
+  .paste-flash{position:absolute;inset:0;border-radius:12px;
+    background:rgba(34,197,94,.15);pointer-events:none;
+    opacity:0;transition:opacity .25s}
+  .paste-flash.on{opacity:1}
+
+  kbd{background:#132033;border:1px solid var(--line);border-bottom-width:2px;
+      border-radius:4px;padding:1px 6px;font-size:.72rem;
+      font-family:ui-monospace,Consolas,monospace;color:#fde68a}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔧 Part List — ręczne wprowadzanie</h1>
+  <p>Wpisuj dane → <kbd>Enter</kbd> = nowy wiersz z tą samą płytą → ustaw materiały i okleiny → pobierz Part List dla FastCut.</p>
+</header>
+
+<main>
+
+  <!-- ============ SEKCJA 1 ============ -->
+  <section class="card" id="inputSection">
+    <h2><span class="num">1</span> Dane wejściowe</h2>
+    <p class="hint">
+      Kolumny: <b>Szafka</b> · <b>Element</b> · <b>Wysokość</b> · <b>Szerokość</b> · <b>Ilość</b> · <b>Płyta</b> · <b>Okleina</b><br>
+      <kbd>Enter</kbd> w dowolnym polu = nowy wiersz z <b>przepisaną płytą</b>, kursor wraca do pierwszej kolumny.<br>
+      Okleina = <b>max 4 znaki</b>, każdy znak to jedna krawędź: <code>D-D-</code> = D, brak, D, brak; <code>D0D0</code> = to samo; <code>DD</code> = D, D, brak, brak; <code>0</code> / puste = brak oklein.<br>
+      W kolumnie <b>Element</b> działają podpowiedzi (wpisz pierwszą literę).<br>
+      Możesz też <b>wkleić</b> z Excela (<kbd>Ctrl</kbd>+<kbd>V</kbd>) — 7 kolumn w tej samej kolejności.
+    </p>
+    <div class="paste-hint" id="pasteHint">📋 Kliknij tu i Ctrl+V</div>
+    <div class="paste-flash" id="pasteFlash"></div>
+    <div class="toolbar">
+      <button class="ghost" onclick="pasteFromClipboard()">📋 Wklej ze schowka</button>
+      <button class="ghost" onclick="loadDemo()">📄 Wczytaj przykład</button>
+      <button class="ghost danger" onclick="clearInput()">🗑 Wyczyść wszystko</button>
+    </div>
+    <div class="tbl-wrap" style="max-height:420px">
+      <table id="inputTable"><thead></thead><tbody></tbody></table>
+    </div>
+    <div class="toolbar" style="margin-top:10px">
+      <button class="ghost" onclick="addInputRow()">+ Dodaj wiersz</button>
+      <button onclick="forceProcess()">⚙ Przetwórz ponownie</button>
+      <span class="badge" id="inStats">Wierszy: 0</span>
+    </div>
+  </section>
+
+  <!-- ============ SEKCJA 2 ============ -->
+  <section class="card">
+    <h2><span class="num">2</span> Materiały i mapowanie oklein <span style="color:var(--mut);font-size:.7rem;font-weight:400;text-transform:none;letter-spacing:0">— przeciągnij ⠿ aby zmienić kolejność</span></h2>
+    <p class="hint">
+      <b>Symbol</b> = nazwa materiału w wyniku (np. <code>PD3037-PU</code>).
+      <b>Słoje</b> → flaga <code>1</code>/<code>0</code> w wyniku.
+      <b>Mapowanie oklein</b> — dla każdej litery osobny kod (np. <code>D → k003-1x22</code>).
+      <b>✕</b> usuwa materiał z eksportu, <b>↺</b> przywraca.
+    </p>
+    <div class="tbl-wrap" style="max-height:none">
+      <table id="configTable">
+        <thead>
+          <tr>
+            <th style="width:28px"></th>
+            <th style="width:20%">Płyta (z kolumny)</th>
+            <th style="width:20%">Symbol w wyniku</th>
+            <th style="width:8%">Słoje</th>
+            <th style="width:46%">Mapowanie oklein</th>
+            <th style="width:6%;text-align:center">Akcje</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="toolbar" style="margin-top:10px">
+      <button class="ghost" onclick="restoreAllMaterials()">↺ Przywróć wszystkie materiały</button>
+      <button class="ghost" onclick="clearMatCache()">🗑 Wyczyść cache materiałów</button>
+      <button class="ghost danger" onclick="clearEdgeCache()">🗑 Wyczyść mapowania oklein</button>
+    </div>
+  </section>
+
+  <!-- ============ SEKCJA 3 ============ -->
+  <section class="card">
+    <h2><span class="num">3</span> Wynik — Part List <span style="color:var(--mut);font-size:.75rem;font-weight:400">(kliknij dowolną komórkę, aby edytować)</span></h2>
+    <div class="toolbar">
+      <button onclick="copyOutput()">📋 Kopiuj do schowka</button>
+      <button onclick="downloadCSV()">⬇ Pobierz CSV</button>
+      <button class="ghost" onclick="downloadCSV(true)">⬇ Pobierz .txt</button>
+      <button class="warn" onclick="resetEdits()">↺ Przywróć oryginał</button>
+      <span class="badge" id="outStats">Wierszy: 0</span>
+      <span class="badge" id="grainStats"></span>
+      <span class="badge" id="editStats">Zmienione: 0</span>
+    </div>
+    <div class="tbl-wrap">
+      <table id="outputTable"><thead></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+</main>
+
+<!-- Datalist dla kolumny Element -->
+<datalist id="elementList">
+  <option value="wieniec dolny"></option>
+  <option value="wieniec gorny"></option>
+  <option value="wieniec srodkowy"></option>
+  <option value="polka"></option>
+  <option value="bok"></option>
+  <option value="cokol"></option>
+  <option value="blenda"></option>
+  <option value="postawa"></option>
+  <option value="hanger"></option>
+  <option value="trawers"></option>
+</datalist>
+
+<script>
+/* ============================================================
+   STAN
+   ============================================================ */
+const state = {
+  inputRows: [],
+  outputRows: [],
+  materials: [],
+  matCache: {},
+  edgeCache: {},
+  excludedMaterials: [],
+};
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g,
+  c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
+/* ============================================================
+   CACHE
+   ============================================================ */
+function saveMatCache(){ try{ localStorage.setItem('pl_mat_v1', JSON.stringify(state.matCache)); }catch(e){} }
+function loadMatCache(){ try{ const r=localStorage.getItem('pl_mat_v1'); if(r) state.matCache=JSON.parse(r); }catch(e){} }
+function saveEdgeCache(){ try{ localStorage.setItem('pl_edge_v1', JSON.stringify(state.edgeCache)); }catch(e){} }
+function loadEdgeCache(){ try{ const r=localStorage.getItem('pl_edge_v1'); if(r) state.edgeCache=JSON.parse(r); }catch(e){} }
+function saveExcluded(){ try{ localStorage.setItem('pl_excluded_v1', JSON.stringify(state.excludedMaterials)); }catch(e){} }
+function loadExcluded(){ try{ const r=localStorage.getItem('pl_excluded_v1'); if(r) state.excludedMaterials=JSON.parse(r); }catch(e){} }
+
+/* ============================================================
+   EDGING — parser "0000"
+   ============================================================ */
+function parseEdging(s){
+  const arr = ['0','0','0','0'];
+  if (!s) return arr;
+  const up = String(s).toUpperCase();
+  let idx = 0;
+  for (let i = 0; i < up.length && idx < 4; i++){
+    const c = up[i];
+    if (c === '-' || c === '0' || c === ' ' || c === '_' || c === '.') arr[idx++] = '0';
+    else if (/[A-Z0-9]/.test(c)) arr[idx++] = c;
+  }
+  return arr;
+}
+
+/* ============================================================
+   RENDER — TABELA WEJŚCIA
+   ============================================================ */
+const INPUT_COLS = [
+  { k:'cabinet',  h:'Szafka',    w:140 },
+  { k:'item',     h:'Element',   w:170, list:'elementList' },
+  { k:'height',   h:'Wysokość',  w:90,  cls:'num' },
+  { k:'width',    h:'Szerokość', w:90,  cls:'num' },
+  { k:'qty',      h:'Ilość',     w:70,  cls:'num' },
+  { k:'material', h:'Płyta',     w:160, cls:'mat' },
+  { k:'edging',   h:'Okleina',   w:110, cls:'edge-input' },
+];
+
+function renderInput(){
+  const head = $('#inputTable thead');
+  const body = $('#inputTable tbody');
+  head.innerHTML = '<tr><th style="width:36px">#</th>' +
+    INPUT_COLS.map(c => `<th style="min-width:${c.w}px">${esc(c.h)}</th>`).join('') +
+    '<th style="width:36px"></th></tr>';
+
+  if (!state.inputRows.length){
+    body.innerHTML = `<tr><td colspan="${INPUT_COLS.length+2}" class="empty-state">
+      Brak danych. Kliknij <b>+ Dodaj wiersz</b>, wklej dane (<kbd>Ctrl</kbd>+<kbd>V</kbd>) lub <b>Wczytaj przykład</b>.</td></tr>`;
+    $('#inStats').textContent = 'Wierszy: 0';
+    $('#pasteHint').classList.remove('hidden');
+    return;
+  }
+  $('#pasteHint').classList.add('hidden');
+
+  body.innerHTML = state.inputRows.map((row, i) => {
+    const tds = INPUT_COLS.map(c => {
+      const v = row[c.k] ?? '';
+      const cls = c.cls || '';
+      const listAttr = c.list ? `list="${c.list}"` : '';
+      const extra = c.k === 'edging' ? 'maxlength="4" spellcheck="false"' : '';
+      return `<td><input class="in-cell ${cls}" type="text" value="${esc(v)}"
+                        ${extra} ${listAttr}
+                        enterkeyhint="next"
+                        data-i="${i}" data-k="${c.k}"
+                        autocomplete="off"></td>`;
+    }).join('');
+    return `<tr>
+      <td style="color:var(--mut);font-size:.7rem;text-align:center">${i+1}</td>
+      ${tds}
+      <td><button class="del-row" onclick="delInputRow(${i})" title="Usuń wiersz">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  body.querySelectorAll('input.in-cell').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const i = +e.target.dataset.i, k = e.target.dataset.k;
+      if (!state.inputRows[i]) return;
+      let v = e.target.value;
+      if (k === 'edging'){
+        v = v.toUpperCase();
+        if (v !== e.target.value) e.target.value = v;
+      }
+      state.inputRows[i][k] = v;
+      scheduleProcess();
+    });
+
+    /* === ENTER = nowy wiersz z przepisaną płytą === */
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey){
+        e.preventDefault();
+        const i = +e.target.dataset.i;
+        insertRowAfter(i);
+      }
+    });
+  });
+  $('#inStats').textContent = 'Wierszy: ' + state.inputRows.length;
+}
+
+/* ============================================================
+   NOWY WIERSZ PO ENTER (z przepisaną płytą)
+   ============================================================ */
+function insertRowAfter(i){
+  const src = state.inputRows[i] || {};
+  const newRow = {
+    cabinet:  src.cabinet  || '',          // zachowaj szafkę (zwykle seria tych samych)
+    item:     '',                          // czyścimy — zwykle wpisujesz inny element
+    height:   '',
+    width:    '',
+    qty:      '1',
+    material: src.material || '',          // ⬅ przepisana płyta
+    edging:   '0000',
+  };
+  state.inputRows.splice(i + 1, 0, newRow);
+  renderInput();
+
+  // focus na pierwszą kolumnę nowego wiersza
+  requestAnimationFrame(() => {
+    const rows = document.querySelectorAll('#inputTable tbody tr');
+    const newTr = rows[i + 1];
+    if (!newTr) return;
+    const first = newTr.querySelector('input.in-cell');
+    if (first){ first.focus(); first.select?.(); }
+    // scroll do widoku
+    newTr.scrollIntoView({ block:'nearest', behavior:'smooth' });
+  });
+  scheduleProcess();
+}
+
+/* ============================================================
+   AKCJE WEJŚCIA
+   ============================================================ */
+function setInputRows(rows){
+  state.inputRows = rows;
+  state.outputRows = [];
+  state.materials = [];
+  renderInput();
+  autoProcess();
+}
+function addInputRow(){
+  const last = state.inputRows[state.inputRows.length - 1] || {};
+  state.inputRows.push({
+    cabinet: '', item: '', height: '', width: '', qty: '1',
+    material: last.material || '', edging: '0000',
+  });
+  renderInput();
+  setTimeout(() => {
+    const rows = document.querySelectorAll('#inputTable tbody tr');
+    const lastTr = rows[rows.length - 1];
+    lastTr?.querySelector('input.in-cell')?.focus();
+  }, 0);
+  scheduleProcess();
+}
+function delInputRow(i){
+  state.inputRows.splice(i, 1);
+  renderInput();
+  scheduleProcess();
+}
+function clearInput(){
+  if (state.inputRows.length && !confirm('Usunąć wszystkie wiersze?')) return;
+  setInputRows([{ cabinet:'', item:'', height:'', width:'', qty:'1', material:'', edging:'0000' }]);
+}
+
+function flashPaste(){
+  const f = $('#pasteFlash');
+  f.classList.add('on');
+  setTimeout(() => f.classList.remove('on'), 220);
+}
+
+/* ============================================================
+   PASTE / PARSOWANIE WKLEJONEGO TEKSTU
+   ============================================================ */
+function parseCSVLine(line, sep){
+  const out = [];
+  let cur = '', inQuotes = false;
+  for (let i = 0; i < line.length; i++){
+    const ch = line[i];
+    if (inQuotes){
+      if (ch === '"'){ if (line[i+1] === '"'){ cur += '"'; i++; } else inQuotes = false; }
+      else cur += ch;
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === sep){ out.push(cur); cur = ''; }
+      else cur += ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
+function parsePastedText(text){
+  if (!text) return [];
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length);
+
+  let sep = '\t';
+  for (const l of lines){
+    const tabs = (l.match(/\t/g) || []).length;
+    const semis = (l.match(/;/g) || []).length;
+    if (tabs > 0){ sep = '\t'; break; }
+    if (semis >= 6){ sep = ';'; break; }
+    sep = '\t';
+    break;
+  }
+
+  const rows = [];
+  for (const line of lines){
+    const cells = parseCSVLine(line, sep);
+    if (cells.length < 7) continue;
+    const c0 = (cells[0] || '').trim().toLowerCase();
+    if (c0 === 'szafka' || c0 === 'cabinet' || c0 === '#') continue;
+
+    rows.push({
+      cabinet:  (cells[0] || '').trim(),
+      item:     (cells[1] || '').trim(),
+      height:   (cells[2] || '').trim(),
+      width:    (cells[3] || '').trim(),
+      qty:      (cells[4] || '').trim(),
+      material: (cells[5] || '').trim(),
+      edging:   (cells[6] || '').trim().toUpperCase(),
+    });
+  }
+  return rows;
+}
+
+function handlePastedText(text){
+  if (!text || !text.trim()){ alert('Schowek jest pusty.'); return; }
+  const rows = parsePastedText(text);
+  if (!rows.length){
+    alert('Nie rozpoznano wierszy.\nWymagane 7 kolumn w kolejności:\nSzafka; Element; Wysokość; Szerokość; Ilość; Płyta; Okleina');
+    return;
+  }
+  if (state.inputRows.length){
+    if (!confirm(`Zastąpić obecne ${state.inputRows.length} wierszy nowymi (${rows.length})?`)) return;
+  }
+  setInputRows(rows);
+  flashPaste();
+}
+
+async function pasteFromClipboard(){
+  try {
+    const text = await navigator.clipboard.readText();
+    handlePastedText(text);
+  } catch(e){
+    const text = prompt('Schowek niedostępny — wklej tutaj (Ctrl+V):');
+    if (text) handlePastedText(text);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const sec = $('#inputSection');
+  sec.addEventListener('paste', e => {
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' && e.clipboardData){
+      const text = e.clipboardData.getData('text');
+      if (!/[\n\t;]/.test(text)) return;
+    }
+    const text = e.clipboardData?.getData('text') || '';
+    if (!text.trim()) return;
+    e.preventDefault();
+    handlePastedText(text);
+  });
+});
+
+/* ============================================================
+   MATERIAŁY
+   ============================================================ */
+function refreshMaterials(){
+  const seen = new Set();
+  const list = [];
+  let maxP = -1;
+
+  state.inputRows.forEach(r => {
+    const mat = (r.material || '').trim();
+    if (!mat || seen.has(mat)) return;
+    seen.add(mat);
+    const c = state.matCache[mat];
+    if (c && typeof c.priority === 'number' && c.priority > maxP) maxP = c.priority;
+  });
+
+  seen.clear();
+  state.inputRows.forEach(r => {
+    const mat = (r.material || '').trim();
+    if (!mat || seen.has(mat)) return;
+    seen.add(mat);
+    const c = state.matCache[mat] || {};
+    const priority = typeof c.priority === 'number' ? c.priority : ++maxP;
+    list.push({
+      material: mat,
+      symbol:   c.symbol   ?? mat,
+      grain:    c.grain    ?? false,
+      priority,
+    });
+  });
+
+  list.sort((a, b) => a.priority - b.priority);
+  state.materials = list;
+}
+
+function getMaterialEdges(material){
+  const inFile = new Set();
+  state.inputRows.forEach(r => {
+    if ((r.material || '').trim() !== material) return;
+    parseEdging(r.edging).forEach(c => { if (c !== '0') inFile.add(c); });
+  });
+
+  const cache = state.edgeCache[material] || {};
+  const letters = new Set(inFile);
+  Object.keys(cache).forEach(l => {
+    if (cache[l] === null) return;
+    letters.add(l);
+  });
+
+  return [...letters].sort().map(letter => ({
+    letter,
+    code:   cache[letter] ?? '',
+    inFile: inFile.has(letter),
+  }));
+}
+
+/* ============================================================
+   RENDER — KONFIG MATERIAŁÓW
+   ============================================================ */
+function renderConfig(){
+  state.materials.sort((a, b) => a.priority - b.priority);
+
+  const tbody = $('#configTable tbody');
+  if (!state.materials.length){
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">
+      Brak materiałów. Wpisz dane w tabeli powyżej.</td></tr>`;
+    return;
+  }
+  const excludedSet = new Set(state.excludedMaterials);
+
+  tbody.innerHTML = state.materials.map((m, i) => {
+    const excluded = excludedSet.has(m.material);
+    const edges = getMaterialEdges(m.material);
+
+    const edgesHtml = edges.length
+      ? edges.map(e => `
+          <span class="edge-chip">
+            <span class="letter-badge">${esc(e.letter)}</span>
+            <span style="color:var(--mut);margin:0 2px">→</span>
+            <input type="text" class="edge-code-input" value="${esc(e.code)}"
+                   placeholder="kod..." data-mi="${i}" data-l="${esc(e.letter)}"
+                   title="${e.inFile ? 'Litera występuje w danych' : 'Litera z cache'}">
+            <button class="x" data-mi="${i}" data-l="${esc(e.letter)}"
+                    title="Usuń mapowanie">✕</button>
+          </span>`).join('')
+      : '<span class="no-edges">brak liter do zmapowania</span>';
+
+    return `<tr class="${excluded ? 'mat-excluded' : ''}" data-mi="${i}">
+      <td class="grip-cell">
+        <span class="grip" draggable="true" data-mi="${i}"
+              title="Przeciągnij, aby zmienić kolejność">⠿</span>
+      </td>
+      <td>
+        <span class="mat-code">${esc(m.material)}</span>
+        ${excluded ? '<span class="badge-excluded">wykluczony</span>' : ''}
+      </td>
+      <td><input type="text" value="${esc(m.symbol)}"
+                 oninput="updMat(${i},'symbol',this.value)"></td>
+      <td style="text-align:center">
+        <input type="checkbox" ${m.grain ? 'checked' : ''}
+               onchange="updMat(${i},'grain',this.checked)">
+      </td>
+      <td><div class="edges-cell">
+        ${edgesHtml}
+        <button class="add-edge-btn" data-mi="${i}">+ dodaj</button>
+      </div></td>
+      <td style="text-align:center">
+        ${excluded
+          ? `<button class="small ghost" data-action="restore" data-mi="${i}"
+                     title="Przywróć do eksportu">↺</button>`
+          : `<button class="small danger" data-action="del" data-mi="${i}"
+                     title="Usuń z eksportu">✕</button>`}
+      </td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('.edge-code-input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const mi = +e.target.dataset.mi;
+      const letter = e.target.dataset.l;
+      const mat = state.materials[mi]?.material;
+      if (!mat) return;
+      setEdgeCode(mat, letter, e.target.value);
+    });
+  });
+  tbody.querySelectorAll('.edge-chip .x').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const mi = +e.currentTarget.dataset.mi;
+      const letter = e.currentTarget.dataset.l;
+      const mat = state.materials[mi]?.material;
+      if (!mat) return;
+      delEdgeForMaterial(mat, letter);
+    });
+  });
+  tbody.querySelectorAll('.add-edge-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const mi = +e.currentTarget.dataset.mi;
+      const mat = state.materials[mi]?.material;
+      if (!mat) return;
+      addEdgeForMaterial(mat);
+    });
+  });
+  tbody.querySelectorAll('button[data-action]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const mi = +e.currentTarget.dataset.mi;
+      const action = e.currentTarget.dataset.action;
+      if (action === 'del') delMat(mi);
+      else if (action === 'restore') restoreMaterial(mi);
+    });
+  });
+
+  attachMaterialDragDrop(tbody);
+}
+
+/* ============================================================
+   DRAG & DROP — kolejność materiałów
+   ============================================================ */
+function reorderMaterials(fromIdx, toIdx){
+  if (fromIdx === toIdx) return;
+  const [item] = state.materials.splice(fromIdx, 1);
+  state.materials.splice(toIdx, 0, item);
+  state.materials.forEach((m, i) => {
+    m.priority = i;
+    state.matCache[m.material] = {
+      symbol: m.symbol, grain: m.grain, priority: i,
+    };
+  });
+  saveMatCache();
+  renderConfig();
+  if (state.inputRows.length){
+    state.outputRows = transform();
+    renderOutput();
+  }
+}
+
+function attachMaterialDragDrop(tbody){
+  let srcIdx = null;
+
+  tbody.querySelectorAll('.grip').forEach(grip => {
+    grip.addEventListener('dragstart', e => {
+      srcIdx = +grip.dataset.mi;
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', String(srcIdx)); } catch(_) {}
+      grip.closest('tr').classList.add('dragging');
+    });
+    grip.addEventListener('dragend', () => {
+      grip.closest('tr')?.classList.remove('dragging');
+      tbody.querySelectorAll('tr').forEach(r =>
+        r.classList.remove('drag-over-top','drag-over-bottom'));
+      srcIdx = null;
+    });
+  });
+
+  tbody.querySelectorAll('tr[data-mi]').forEach(tr => {
+    tr.addEventListener('dragover', e => {
+      if (srcIdx === null) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const rect = tr.getBoundingClientRect();
+      const above = e.clientY < rect.top + rect.height / 2;
+      tbody.querySelectorAll('tr').forEach(r =>
+        r.classList.remove('drag-over-top','drag-over-bottom'));
+      tr.classList.add(above ? 'drag-over-top' : 'drag-over-bottom');
+    });
+    tr.addEventListener('dragleave', () => {
+      tr.classList.remove('drag-over-top','drag-over-bottom');
+    });
+    tr.addEventListener('drop', e => {
+      e.preventDefault();
+      if (srcIdx === null) return;
+      const targetIdx = +tr.dataset.mi;
+      const rect = tr.getBoundingClientRect();
+      const above = e.clientY < rect.top + rect.height / 2;
+      let newIdx = above ? targetIdx : targetIdx + 1;
+      if (srcIdx < newIdx) newIdx--;
+      tbody.querySelectorAll('tr').forEach(r =>
+        r.classList.remove('drag-over-top','drag-over-bottom'));
+      reorderMaterials(srcIdx, newIdx);
+      srcIdx = null;
+    });
+  });
+}
+
+/* ============================================================
+   EDYCJA MATERIAŁÓW
+   ============================================================ */
+function updMat(i, k, v){
+  if (!state.materials[i]) return;
+  state.materials[i][k] = v;
+  state.matCache[state.materials[i].material] = {
+    symbol:   state.materials[i].symbol,
+    grain:    state.materials[i].grain,
+    priority: state.materials[i].priority,
+  };
+  saveMatCache();
+  if (state.inputRows.length){
+    state.outputRows = transform();
+    renderOutput();
+  }
+}
+
+function delMat(i){
+  const mat = state.materials[i]?.material;
+  if (!mat) return;
+  if (!confirm(`Usunąć materiał "${mat}" z eksportu?\n\nWiersze z tym materiałem znikną z tabeli wynikowej.\nMożesz go później przywrócić przyciskiem ↺.`)) return;
+  if (!state.excludedMaterials.includes(mat)){
+    state.excludedMaterials.push(mat);
+    saveExcluded();
+  }
+  renderConfig();
+  if (state.inputRows.length){
+    state.outputRows = transform();
+    renderOutput();
+  }
+}
+function restoreMaterial(i){
+  const mat = state.materials[i]?.material;
+  if (!mat) return;
+  state.excludedMaterials = state.excludedMaterials.filter(m => m !== mat);
+  saveExcluded();
+  renderConfig();
+  if (state.inputRows.length){
+    state.outputRows = transform();
+    renderOutput();
+  }
+}
+function restoreAllMaterials(){
+  if (!state.excludedMaterials.length){ alert('Brak wykluczonych materiałów.'); return; }
+  if (!confirm(`Przywrócić wszystkie usunięte materiały (${state.excludedMaterials.length})?`)) return;
+  state.excludedMaterials = []; saveExcluded();
+  renderConfig();
+  if (state.inputRows.length){
+    state.outputRows = transform();
+    renderOutput();
+  }
+}
+
+/* ============================================================
+   EDGE — set / del / add
+   ============================================================ */
+function setEdgeCode(material, letter, code){
+  if (!state.edgeCache[material]) state.edgeCache[material] = {};
+  state.edgeCache[material][letter] = code;
+  saveEdgeCache();
+  if (state.inputRows.length){
+    state.outputRows = transform();
+    renderOutput();
+  }
+}
+function delEdgeForMaterial(material, letter){
+  if (!confirm(`Usunąć mapowanie "${letter}" dla materiału "${material}"?`)) return;
+  if (!state.edgeCache[material]) state.edgeCache[material] = {};
+  state.edgeCache[material][letter] = null;
+  saveEdgeCache();
+  renderConfig();
+  if (state.inputRows.length){
+    state.outputRows = transform();
+    renderOutput();
+  }
+}
+function addEdgeForMaterial(material){
+  const letter = prompt(`Dodaj literę okleiny dla materiału "${material}":\n(np. D, I, B, A)`, 'D');
+  if (!letter) return;
+  const t = letter.trim().toUpperCase();
+  if (!t) return;
+
+  if (!state.edgeCache[material]) state.edgeCache[material] = {};
+  const cur = state.edgeCache[material][t];
+  if (cur !== undefined && cur !== null){
+    alert(`Litera "${t}" już istnieje dla materiału "${material}".`);
+    return;
+  }
+
+  const code = prompt(`Kod okleiny dla "${material}" + "${t}":\n(np. k003-1x22)\nPozostaw puste, aby zachować samą literę.`, '') ?? '';
+  state.edgeCache[material][t] = code.trim();
+  saveEdgeCache();
+  renderConfig();
+  if (state.inputRows.length){
+    state.outputRows = transform();
+    renderOutput();
+  }
+}
+
+/* ============================================================
+   TRANSFORMACJA
+   ============================================================ */
+function transform(){
+  const matMap = {};
+  state.materials.forEach(m => { if (m.material) matMap[m.material] = m; });
+  const excluded = new Set(state.excludedMaterials);
+
+  const out = [];
+  state.inputRows.forEach(r => {
+    const mat = (r.material || '').trim();
+    if (!mat || excluded.has(mat)) return;
+
+    const mm = matMap[mat];
+    const symbol   = mm ? mm.symbol : mat;
+    const priority = mm ? mm.priority : 99;
+    const grainFlag = mm ? (mm.grain ? 1 : 0) : 0;
+
+    const parsed = parseEdging(r.edging);
+    const map = state.edgeCache[mat] || {};
+    const edges = parsed.map(p => {
+      if (p === '0') return '0';
+      const code = map[p];
+      if (code === null || code === undefined) return p;
+      return code || p;
+    });
+
+    const nazwa = (r.cabinet || '') + '.' + (r.item || '');
+
+    out.push({
+      symbol,
+      height: r.height, width: r.width, qty: r.qty,
+      nazwa,
+      edge1: edges[0], edge2: edges[1], edge3: edges[2], edge4: edges[3],
+      flag: grainFlag,
+      x2: 0,
+      _priority: priority,
+      _cabinet: r.cabinet || '',
+      _item: r.item || '',
+      _order: 0,
+      _edited: {},
+    });
+  });
+
+  out.forEach((row, i) => row._order = i);
+  out.sort((a, b) => {
+    if (a._priority !== b._priority) return a._priority - b._priority;
+    const ac = a._cabinet.toLowerCase(), bc = b._cabinet.toLowerCase();
+    if (!ac && bc) return 1;
+    if (ac && !bc) return -1;
+    if (ac !== bc) return ac < bc ? -1 : 1;
+    const ai = a._item.toLowerCase(), bi = b._item.toLowerCase();
+    if (ai !== bi) return ai < bi ? -1 : 1;
+    return a._order - b._order;
+  });
+  return out;
+}
+
+/* ============================================================
+   PROCES — auto z debounce / wymuszony
+   ============================================================ */
+let _procTimer = null;
+function scheduleProcess(){
+  clearTimeout(_procTimer);
+  _procTimer = setTimeout(autoProcess, 250);
+}
+function autoProcess(){
+  if (!state.inputRows.length){
+    state.outputRows = [];
+    state.materials = [];
+    renderConfig();
+    renderOutput();
+    return;
+  }
+  if (hasEdits()) return;
+  refreshMaterials();
+  state.outputRows = transform();
+  renderConfig();
+  renderOutput();
+}
+function forceProcess(){
+  if (!state.inputRows.length){ alert('Brak danych do przetworzenia.'); return; }
+  if (hasEdits()){
+    if (!confirm('Masz ręczne zmiany w tabeli wynikowej. Przetworzenie ich usunie. Kontynuować?')) return;
+  }
+  refreshMaterials();
+  state.outputRows = transform();
+  renderConfig();
+  renderOutput();
+}
+
+/* ============================================================
+   RENDER — WYNIK
+   ============================================================ */
+const OUT_COLS = [
+  { k:'symbol', h:'Symbol',    cls:'',     wcls:'' },
+  { k:'height', h:'DŁ',        cls:'num',  wcls:'col-narrow' },
+  { k:'width',  h:'SZER',      cls:'num',  wcls:'col-narrow' },
+  { k:'qty',    h:'ILOŚĆ',     cls:'num',  wcls:'col-tiny' },
+  { k:'nazwa',  h:'NAZWA',     cls:'',     wcls:'' },
+  { k:'edge1',  h:'Okleina 1', cls:'edge', wcls:'col-edge' },
+  { k:'edge2',  h:'Okleina 2', cls:'edge', wcls:'col-edge' },
+  { k:'edge3',  h:'Okleina 3', cls:'edge', wcls:'col-edge' },
+  { k:'edge4',  h:'Okleina 4', cls:'edge', wcls:'col-edge' },
+  { k:'flag',   h:'Słoje',     cls:'flag', wcls:'col-tiny' },
+  { k:'x2',     h:'X2',        cls:'flag', wcls:'col-tiny' },
+];
+
+function renderOutput(){
+  const head = $('#outputTable thead');
+  const body = $('#outputTable tbody');
+  head.innerHTML = '<tr><th style="width:36px">#</th>' +
+    OUT_COLS.map(c => `<th class="${c.wcls}">${esc(c.h)}</th>`).join('') + '</tr>';
+
+  if (!state.outputRows.length){
+    const msg = (state.excludedMaterials.length && !state.materials.length)
+      ? 'Wszystkie materiały są wykluczone z eksportu.'
+      : 'Wpisz dane w tabeli powyżej.';
+    body.innerHTML = `<tr><td colspan="${OUT_COLS.length+1}" class="empty-state">${msg}</td></tr>`;
+    $('#outStats').textContent = 'Wierszy: 0';
+    $('#grainStats').textContent = '';
+    $('#editStats').textContent = 'Zmienione: 0';
+    $('#editStats').className = 'badge';
+    return;
+  }
+
+  let withGrain = 0, withoutGrain = 0, editedCount = 0;
+
+  body.innerHTML = state.outputRows.map((r, i) => {
+    const edited = r._edited || {};
+    const rowEdited = Object.keys(edited).length > 0;
+    if (rowEdited) editedCount += Object.keys(edited).length;
+
+    const tds = OUT_COLS.map(c => {
+      const v = r[c.k];
+      const isEdited = !!edited[c.k];
+      const editCls = isEdited ? 'edited' : '';
+      const wcls = c.wcls;
+
+      if (c.k === 'flag' || c.k === 'x2'){
+        if (c.k === 'flag'){ if (v === 1) withGrain++; else withoutGrain++; }
+        const val = (v === 1 || v === '1') ? 1 : 0;
+        return `<td class="${isEdited?'edited-cell':''} ${wcls}">
+          <select class="cell-select ${val ? 'g1' : 'g0'} ${editCls}"
+                  data-i="${i}" data-k="${c.k}">
+            <option value="0" ${val==0?'selected':''}>0</option>
+            <option value="1" ${val==1?'selected':''}>1</option>
+          </select></td>`;
+      }
+      if (c.cls === 'edge'){
+        const cls = 'cell-input edge ' + (v === '0' || v === '' ? 'zero ' : '') + editCls;
+        return `<td class="${isEdited?'edited-cell':''} ${wcls}">
+          <input class="${cls}" type="text" value="${esc(v)}"
+                 data-i="${i}" data-k="${c.k}" maxlength="40"></td>`;
+      }
+      if (c.cls === 'num'){
+        return `<td class="${isEdited?'edited-cell':''} ${wcls}">
+          <input class="cell-input num ${editCls}" type="text" value="${esc(v)}"
+                 data-i="${i}" data-k="${c.k}"></td>`;
+      }
+      return `<td class="${isEdited?'edited-cell':''} ${wcls}">
+        <input class="cell-input ${editCls}" type="text" value="${esc(v)}"
+               data-i="${i}" data-k="${c.k}"></td>`;
+    }).join('');
+
+    const marker = rowEdited
+      ? '<span class="mark-edited" title="Wiersz edytowany">✎</span>'
+      : '';
+    return `<tr>
+      <td style="color:var(--mut);font-size:.7rem;text-align:center">${i+1} ${marker}</td>
+      ${tds}
+    </tr>`;
+  }).join('');
+
+  $('#outStats').textContent = 'Wierszy: ' + state.outputRows.length;
+  $('#grainStats').textContent = `Ze słojami: ${withGrain} · Bez słojów: ${withoutGrain}`;
+  $('#editStats').textContent = `Zmienione: ${editedCount}`;
+  $('#editStats').className = 'badge' + (editedCount ? ' warn' : '');
+
+  body.querySelectorAll('input.cell-input, select.cell-select').forEach(el => {
+    el.addEventListener('input', handleCellEdit);
+    el.addEventListener('change', handleCellEdit);
+  });
+}
+
+function handleCellEdit(e){
+  const el = e.target;
+  const i = +el.dataset.i, k = el.dataset.k;
+  const row = state.outputRows[i];
+  if (!row) return;
+  let newVal = el.value;
+  if (k === 'flag' || k === 'x2') newVal = parseInt(newVal, 10) || 0;
+  if (row[k] === newVal) return;
+
+  row[k] = newVal;
+  if (!row._edited) row._edited = {};
+  row._edited[k] = true;
+
+  el.classList.add('edited');
+  el.closest('td').classList.add('edited-cell');
+  if (k === 'flag' || k === 'x2'){
+    el.classList.remove('g0','g1');
+    el.classList.add(newVal ? 'g1' : 'g0');
+  }
+  if (k.startsWith('edge')) el.classList.toggle('zero', newVal === '0' || newVal === '');
+  const markerCell = el.closest('tr').querySelector('td:first-child');
+  if (!markerCell.querySelector('.mark-edited')){
+    markerCell.innerHTML = markerCell.innerHTML.trim() +
+      ' <span class="mark-edited" title="Wiersz edytowany">✎</span>';
+  }
+  updateEditCount();
+  updateGrainStats();
+}
+function updateEditCount(){
+  let n = 0;
+  state.outputRows.forEach(r => { if (r._edited) n += Object.keys(r._edited).length; });
+  $('#editStats').textContent = `Zmienione: ${n}`;
+  $('#editStats').className = 'badge' + (n ? ' warn' : '');
+}
+function updateGrainStats(){
+  let w = 0, wo = 0;
+  state.outputRows.forEach(r => { if (r.flag === 1) w++; else wo++; });
+  $('#grainStats').textContent = `Ze słojami: ${w} · Bez słojów: ${wo}`;
+}
+function hasEdits(){
+  return state.outputRows.some(r => r._edited && Object.keys(r._edited).length > 0);
+}
+function resetEdits(){
+  if (!hasEdits()){ alert('Brak ręcznych zmian do przywrócenia.'); return; }
+  if (!confirm('Przywrócić oryginalne wartości (usunąć wszystkie ręczne zmiany)?')) return;
+  state.outputRows = transform();
+  renderOutput();
+}
+
+/* ============================================================
+   EKSPORT
+   ============================================================ */
+function buildCSV(){
+  return state.outputRows.map(r => OUT_COLS.map(c => {
+    const v = r[c.k] ?? '';
+    const s = String(v).replace(/"/g, '""');
+    return /[;"\n]/.test(s) ? `"${s}"` : s;
+  }).join(';')).join('\n');
+}
+function copyOutput(){
+  if (!state.outputRows.length){ alert('Brak danych.'); return; }
+  navigator.clipboard.writeText(buildCSV())
+    .then(() => alert('Skopiowano ' + state.outputRows.length + ' wierszy.'))
+    .catch(() => alert('Nie udało się skopiować.'));
+}
+function downloadCSV(asTxt){
+  if (!state.outputRows.length){ alert('Brak danych.'); return; }
+  const csv = buildCSV();
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = asTxt ? 'part_list.txt' : 'part_list.csv';
+  a.click();
+}
+
+/* ============================================================
+   CZYSZCZENIE CACHE
+   ============================================================ */
+function clearMatCache(){
+  if (!confirm('Wyczyścić zapisane ustawienia materiałów (symbol/słoje/priorytet)?\n\nLista wykluczonych materiałów i mapowania oklein NIE zostaną wyczyszczone.')) return;
+  state.matCache = {}; saveMatCache();
+  if (state.inputRows.length) refreshMaterials();
+  renderConfig();
+  if (state.inputRows.length){ state.outputRows = transform(); renderOutput(); }
+}
+function clearEdgeCache(){
+  if (!confirm('Wyczyścić wszystkie zapisane mapowania oklein (dla wszystkich materiałów)?')) return;
+  state.edgeCache = {}; saveEdgeCache();
+  renderConfig();
+  if (state.inputRows.length){ state.outputRows = transform(); renderOutput(); }
+}
+
+/* ============================================================
+   DEMO
+   ============================================================ */
+const DEMO_INPUT =
+`KG.S1	wieniec dolny	1500	90	1	DRE	D---
+KG.S1	bok	1500	90	1	DRE	D---
+KG.S1	wieniec dolny	1000	580	1	DRE	DDD0
+KG.S1	wieniec gorny	1000	580	1	DRE	DDD0
+KG.S1	bok	1494	560	1	HDF	0000
+KG.S1	polka	550	560	3	DRE	D00D
+KG.S2	bok	2000	580	1	KOL1	D---
+KG.S2	bok	2000	580	1	KOL1	D---
+KG.S2	wieniec dolny	1000	580	1	KOL1	DDD0
+KG.S2	hanger	453	190	1	KOL1	DDDD
+KG.S2	polka	539	915	3	KOL1	DD00
+KG.S3	wieniec dolny	1000	580	1	DRE2	D---
+KG.S3	bok	900	560	1	HDF	0000
+KG.S5	cokol	750	350	1	KOL2	D---`;
+
+function loadDemo(){ handlePastedText(DEMO_INPUT); }
+
+/* ============================================================
+   START
+   ============================================================ */
+loadMatCache();
+loadEdgeCache();
+loadExcluded();
+// start z jednym pustym wierszem — gotowy do pisania
+if (!state.inputRows.length){
+  state.inputRows.push({
+    cabinet:'', item:'', height:'', width:'', qty:'1',
+    material:'', edging:'0000',
+  });
+}
+renderInput();
+renderConfig();
+renderOutput();
+
+// focus na pierwszym polu przy starcie
+requestAnimationFrame(() => {
+  document.querySelector('#inputTable tbody input.in-cell')?.focus();
+});
+</script>
+</body>
+</html>
