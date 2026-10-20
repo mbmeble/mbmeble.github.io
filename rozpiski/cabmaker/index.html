@@ -94,6 +94,16 @@
   td.edited-cell{background:rgba(251,191,36,.04)!important}
   .mark-edited{color:var(--edited);font-weight:700;font-size:.75rem}
 
+  /* === Puste okleiny — placeholder kreska, wartość pusta === */
+  .cell-input.edge.empty-edge::placeholder {
+    color: #334155;
+    font-weight: 400;
+    opacity: 1;
+  }
+  .cell-input.edge.empty-edge {
+    color: transparent;
+  }
+
   .cell-select{
     background:transparent;border:1px solid transparent;
     font:inherit;font-weight:700;padding:3px 4px;cursor:pointer;
@@ -821,14 +831,15 @@ function addEdgeForMaterial(material){
    OKLEINA → 4 KOLUMNY (per materiał)
    ============================================================ */
 function edgingToColumns(edging, material){
-  if (!edging) return ['0','0','0','0'];
+  if (!edging) return ['','','',''];
   const map = state.edgeCache[material] || {};
   const parts = edging.split('-');
   const out = [];
   for (let i = 0; i < 4; i++){
     const p = (parts[i] || '').trim();
-    if (p === '') out.push('0');
-    else {
+    if (p === '') {
+      out.push('');  // puste, nie "0"
+    } else {
       const code = map[p];
       if (code === null || code === undefined) out.push(p);
       else out.push(code || p);
@@ -950,10 +961,13 @@ function renderOutput(){
           </select></td>`;
       }
       if (c.cls === 'edge'){
-  const cls = 'cell-input edge ' + (v === '0' ? 'zero ' : '') + editCls;
+        const isEmpty = (v === '' || v == null);
+        const isZero  = (v === '0');
+        const cls = 'cell-input edge ' + (isZero ? 'zero ' : '') +
+                    (isEmpty ? 'empty-edge ' : '') + editCls;
         return `<td class="${isEdited?'edited-cell':''} ${wcls}">
           <input class="${cls}" type="text" value="${esc(v)}"
-                 data-i="${i}" data-k="${c.k}" maxlength="40"></td>`;
+                 placeholder="—" data-i="${i}" data-k="${c.k}" maxlength="40"></td>`;
       }
       if (c.cls === 'num'){
         return `<td class="${isEdited?'edited-cell':''} ${wcls}">
@@ -1002,7 +1016,10 @@ function handleCellEdit(e){
     el.classList.remove('g0','g1');
     el.classList.add(newVal ? 'g1' : 'g0');
   }
-  if (k.startsWith('edge')) el.classList.toggle('zero', newVal === '0' || newVal === '');
+  if (k.startsWith('edge')) {
+    el.classList.toggle('zero', newVal === '0');
+    el.classList.toggle('empty-edge', newVal === '');
+  }
   const markerCell = el.closest('tr').querySelector('td:first-child');
   if (!markerCell.querySelector('.mark-edited')){
     markerCell.innerHTML = markerCell.innerHTML.trim() + ' <span class="mark-edited" title="Wiersz edytowany">✎</span>';
@@ -1086,7 +1103,7 @@ const DEMO_INPUT =
 6;1;;Cabinet;Top 1;500;580;18;DRE;Sheet Good;D---
 10;1;;Drawer Box;Pullout Front;453;190;18;DRE;Sheet Good;D-D-D-D
 13;1;KG.cok1;Cabinet;Right Side;1500;90;18;DRE;Sheet Good;D-D--
-16;1;;KG.S1n;Cabinet;Back;585;494;1;HDF-K110-BIAŁY;Sheet Good;---
+16;1;KG.S1n;Cabinet;Back;585;494;1;HDF-K110-BIAŁY;Sheet Good;---
 23;1;KG.S2;Cabinet;Bottom 1;1000;580;18;KOL1;Sheet Good;D---
 28;3;KG.S2;Drawer Box;Pullout Bottom;539;915;18;KOL1;Sheet Good;---
 47;1;KG.S3;Cabinet;Bottom 1;1000;580;18;DRE2;Sheet Good;D---
