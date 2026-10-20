@@ -64,6 +64,9 @@
     text-align:center;letter-spacing:2px;text-transform:uppercase;
     color:#fde68a;font-weight:700;
   }
+  .in-cell::placeholder{
+    color:#475569;font-style:italic;font-weight:400;opacity:1;
+  }
 
   .del-row{background:transparent;border:0;color:#ef4444;cursor:pointer;
            font-weight:700;padding:2px 6px;font-size:.9rem}
@@ -179,7 +182,7 @@
     <p class="hint">
       Kolumny: <b>Szafka</b> · <b>Element</b> · <b>Wysokość</b> · <b>Szerokość</b> · <b>Ilość</b> · <b>Płyta</b> · <b>Okleina</b><br>
       <kbd>Enter</kbd> w dowolnym polu = nowy wiersz z <b>przepisaną płytą</b>, kursor wraca do pierwszej kolumny.<br>
-      Okleina = <b>max 4 znaki</b>, każdy znak to jedna krawędź: <code>D-D-</code> = D, brak, D, brak; <code>D0D0</code> = to samo; <code>DD</code> = D, D, brak, brak; <code>0</code> / puste = brak oklein.<br>
+      Okleina = <b>max 4 znaki</b>, każdy znak to jedna krawędź: <code>D-D-</code> = D, brak, D, brak; <code>D0D0</code> = to samo; <code>DD</code> = D, D, brak, brak; puste / <code>0</code> = brak oklein.<br>
       W kolumnie <b>Element</b> działają podpowiedzi (wpisz pierwszą literę).<br>
       Możesz też <b>wkleić</b> z Excela (<kbd>Ctrl</kbd>+<kbd>V</kbd>) — 7 kolumn w tej samej kolejności.
     </p>
@@ -292,16 +295,17 @@ function saveExcluded(){ try{ localStorage.setItem('pl_excluded_v1', JSON.string
 function loadExcluded(){ try{ const r=localStorage.getItem('pl_excluded_v1'); if(r) state.excludedMaterials=JSON.parse(r); }catch(e){} }
 
 /* ============================================================
-   EDGING — parser "0000"
+   EDGING — parser "0000" (puste = '')
    ============================================================ */
+/* Zwraca 4-elementową tablicę liter; puste pozycje = '' (nie '0'). */
 function parseEdging(s){
-  const arr = ['0','0','0','0'];
+  const arr = ['','','',''];
   if (!s) return arr;
   const up = String(s).toUpperCase();
   let idx = 0;
   for (let i = 0; i < up.length && idx < 4; i++){
     const c = up[i];
-    if (c === '-' || c === '0' || c === ' ' || c === '_' || c === '.') arr[idx++] = '0';
+    if (c === '-' || c === '0' || c === ' ' || c === '_' || c === '.') arr[idx++] = '';
     else if (/[A-Z0-9]/.test(c)) arr[idx++] = c;
   }
   return arr;
@@ -317,7 +321,7 @@ const INPUT_COLS = [
   { k:'width',    h:'Szerokość', w:90,  cls:'num' },
   { k:'qty',      h:'Ilość',     w:70,  cls:'num' },
   { k:'material', h:'Płyta',     w:160, cls:'mat' },
-  { k:'edging',   h:'Okleina',   w:110, cls:'edge-input' },
+  { k:'edging',   h:'Okleina',   w:110, cls:'edge-input', ph:'0000' },
 ];
 
 function renderInput(){
@@ -341,9 +345,10 @@ function renderInput(){
       const v = row[c.k] ?? '';
       const cls = c.cls || '';
       const listAttr = c.list ? `list="${c.list}"` : '';
+      const phAttr = c.ph ? `placeholder="${c.ph}"` : '';
       const extra = c.k === 'edging' ? 'maxlength="4" spellcheck="false"' : '';
       return `<td><input class="in-cell ${cls}" type="text" value="${esc(v)}"
-                        ${extra} ${listAttr}
+                        ${extra} ${listAttr} ${phAttr}
                         enterkeyhint="next"
                         data-i="${i}" data-k="${c.k}"
                         autocomplete="off"></td>`;
@@ -386,25 +391,23 @@ function renderInput(){
 function insertRowAfter(i){
   const src = state.inputRows[i] || {};
   const newRow = {
-    cabinet:  src.cabinet  || '',          // zachowaj szafkę (zwykle seria tych samych)
-    item:     '',                          // czyścimy — zwykle wpisujesz inny element
+    cabinet:  src.cabinet  || '',
+    item:     '',
     height:   '',
     width:    '',
     qty:      '1',
-    material: src.material || '',          // ⬅ przepisana płyta
-    edging:   '0000',
+    material: src.material || '',
+    edging:   '',                    // ⬅ puste (placeholder pokazuje format)
   };
   state.inputRows.splice(i + 1, 0, newRow);
   renderInput();
 
-  // focus na pierwszą kolumnę nowego wiersza
   requestAnimationFrame(() => {
     const rows = document.querySelectorAll('#inputTable tbody tr');
     const newTr = rows[i + 1];
     if (!newTr) return;
     const first = newTr.querySelector('input.in-cell');
     if (first){ first.focus(); first.select?.(); }
-    // scroll do widoku
     newTr.scrollIntoView({ block:'nearest', behavior:'smooth' });
   });
   scheduleProcess();
@@ -424,7 +427,7 @@ function addInputRow(){
   const last = state.inputRows[state.inputRows.length - 1] || {};
   state.inputRows.push({
     cabinet: '', item: '', height: '', width: '', qty: '1',
-    material: last.material || '', edging: '0000',
+    material: last.material || '', edging: '',   // ⬅ puste
   });
   renderInput();
   setTimeout(() => {
@@ -441,7 +444,7 @@ function delInputRow(i){
 }
 function clearInput(){
   if (state.inputRows.length && !confirm('Usunąć wszystkie wiersze?')) return;
-  setInputRows([{ cabinet:'', item:'', height:'', width:'', qty:'1', material:'', edging:'0000' }]);
+  setInputRows([{ cabinet:'', item:'', height:'', width:'', qty:'1', material:'', edging:'' }]);
 }
 
 function flashPaste(){
@@ -584,7 +587,7 @@ function getMaterialEdges(material){
   const inFile = new Set();
   state.inputRows.forEach(r => {
     if ((r.material || '').trim() !== material) return;
-    parseEdging(r.edging).forEach(c => { if (c !== '0') inFile.add(c); });
+    parseEdging(r.edging).forEach(c => { if (c) inFile.add(c); });
   });
 
   const cache = state.edgeCache[material] || {};
@@ -889,7 +892,7 @@ function transform(){
     const parsed = parseEdging(r.edging);
     const map = state.edgeCache[mat] || {};
     const edges = parsed.map(p => {
-      if (p === '0') return '0';
+      if (!p) return '';                 // ⬅ brak okleiny = pusta komórka (nie "0")
       const code = map[p];
       if (code === null || code === undefined) return p;
       return code || p;
@@ -1018,7 +1021,9 @@ function renderOutput(){
           </select></td>`;
       }
       if (c.cls === 'edge'){
-        const cls = 'cell-input edge ' + (v === '0' || v === '' ? 'zero ' : '') + editCls;
+        // pusta komórka gdy brak okleiny — '0' też traktujemy jako puste (dla starych danych)
+        const isEmpty = !v || v === '0';
+        const cls = 'cell-input edge ' + (isEmpty ? 'zero ' : '') + editCls;
         return `<td class="${isEdited?'edited-cell':''} ${wcls}">
           <input class="${cls}" type="text" value="${esc(v)}"
                  data-i="${i}" data-k="${c.k}" maxlength="40"></td>`;
@@ -1072,7 +1077,7 @@ function handleCellEdit(e){
     el.classList.remove('g0','g1');
     el.classList.add(newVal ? 'g1' : 'g0');
   }
-  if (k.startsWith('edge')) el.classList.toggle('zero', newVal === '0' || newVal === '');
+  if (k.startsWith('edge')) el.classList.toggle('zero', !newVal || newVal === '0');
   const markerCell = el.closest('tr').querySelector('td:first-child');
   if (!markerCell.querySelector('.mark-edited')){
     markerCell.innerHTML = markerCell.innerHTML.trim() +
@@ -1107,7 +1112,9 @@ function resetEdits(){
    ============================================================ */
 function buildCSV(){
   return state.outputRows.map(r => OUT_COLS.map(c => {
-    const v = r[c.k] ?? '';
+    let v = r[c.k] ?? '';
+    // Okleina: brak okleiny => pusta komórka (nawet jeśli ktoś ręcznie wpisał "0")
+    if (c.cls === 'edge' && (v === '0' || v === 0)) v = '';
     const s = String(v).replace(/"/g, '""');
     return /[;"\n]/.test(s) ? `"${s}"` : s;
   }).join(';')).join('\n');
@@ -1153,7 +1160,7 @@ const DEMO_INPUT =
 KG.S1	bok	1500	90	1	DRE	D---
 KG.S1	wieniec dolny	1000	580	1	DRE	DDD0
 KG.S1	wieniec gorny	1000	580	1	DRE	DDD0
-KG.S1	bok	1494	560	1	HDF	0000
+KG.S1	bok	1494	560	1	HDF	
 KG.S1	polka	550	560	3	DRE	D00D
 KG.S2	bok	2000	580	1	KOL1	D---
 KG.S2	bok	2000	580	1	KOL1	D---
@@ -1161,7 +1168,7 @@ KG.S2	wieniec dolny	1000	580	1	KOL1	DDD0
 KG.S2	hanger	453	190	1	KOL1	DDDD
 KG.S2	polka	539	915	3	KOL1	DD00
 KG.S3	wieniec dolny	1000	580	1	DRE2	D---
-KG.S3	bok	900	560	1	HDF	0000
+KG.S3	bok	900	560	1	HDF	
 KG.S5	cokol	750	350	1	KOL2	D---`;
 
 function loadDemo(){ handlePastedText(DEMO_INPUT); }
@@ -1176,7 +1183,7 @@ loadExcluded();
 if (!state.inputRows.length){
   state.inputRows.push({
     cabinet:'', item:'', height:'', width:'', qty:'1',
-    material:'', edging:'0000',
+    material:'', edging:'',       // ⬅ puste
   });
 }
 renderInput();
